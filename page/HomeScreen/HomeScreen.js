@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,18 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  Modal
+  Modal,
+  ActivityIndicator
 } from "react-native";
 import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons";
-import FormTambahPasien from "./FormTambahPasien";
+import TambahPasienForm from "./TambahPasienForm";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Komponen Card Pasien (statik)
 const PasienCard = ({ pasien }) => {
-  const getStatusStyle = (status) => {
-    const safeStatus = status ? status.toLowerCase() : "non aktif";
-    switch (safeStatus) {
+  const status = pasien.status || "non-aktif";
+
+  const getStatusStyle = () => {
+    switch (status.toLowerCase()) {
       case "aktif":
         return {
           borderColor: "#29b6f6",
@@ -29,7 +31,6 @@ const PasienCard = ({ pasien }) => {
           badgeColor: "#448AFF",
           badgeText: "Selesai"
         };
-      case "non aktif":
       default:
         return {
           borderColor: "#e0e0e0",
@@ -38,18 +39,20 @@ const PasienCard = ({ pasien }) => {
         };
     }
   };
-  const { borderColor, badgeColor, badgeText } = getStatusStyle(pasien.status);
+
+  const { borderColor, badgeColor, badgeText } = getStatusStyle();
 
   return (
-    <View style={[styles.card, { borderColor: borderColor }]}>
+    <View style={[styles.card, { borderColor }]}>
       <FontAwesome name="user-circle" size={50} color="#555" />
+
       <View style={styles.cardInfo}>
         <Text style={styles.cardNama}>{pasien.nama}</Text>
         <Text style={styles.cardDetail}>Umur: {pasien.umur} tahun</Text>
-        <Text style={styles.cardDetail}>
-          No. Register: {pasien.no_register}
-        </Text>
+        <Text style={styles.cardDetail}>No. Register: {pasien.no_reg}</Text>
+        <Text style={styles.cardDetail}>Alamat: {pasien.alamat}</Text>
       </View>
+
       <View style={[styles.badge, { backgroundColor: badgeColor }]}>
         <Text style={styles.badgeText}>{badgeText}</Text>
       </View>
@@ -59,32 +62,103 @@ const PasienCard = ({ pasien }) => {
 
 export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
+  const [userToken, setUserToken] = useState(null);
+  const [pasienList, setPasienList] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data sementara
-  const pasienList = [
-    {
-      nama: "Contoh Megawati",
-      umur: 27,
-      no_register: "P-001",
-      status: "aktif"
-    },
-    {
-      nama: "Contoh Samsinar",
-      umur: 33,
-      no_register: "P-024",
-      status: "non aktif"
-    },
-    { nama: "Contoh Burung", umur: 24, no_register: "P-018", status: "selesai" }
-  ];
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredPasienList = pasienList.filter((pasien) =>
+    pasien.nama.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const fetchPasien = async (token) => {
+    if (!token) {
+      console.log("⛔ Tidak bisa fetch: token tidak ada");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`http://10.0.2.2:8000/api/bidan/pasien`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      console.log("📌 HASIL FETCH PASIEN:", data);
+
+      setPasienList(data.daftar_pasien || []);
+    } catch (error) {
+      console.log("❌ ERROR FETCH:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadTokenAndFetch = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+
+        console.log("🔑 TOKEN TERBACA:", token);
+
+        if (token) {
+          setUserToken(token);
+          await fetchPasien(token);
+        } else {
+          console.log("⚠️ Token tidak ditemukan.");
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.log("❌ ERROR LOAD TOKEN:", err);
+        setIsLoading(false);
+      }
+    };
+
+    loadTokenAndFetch();
+  }, []);
 
   const handleFormSuccess = () => {
+    console.log("🔄 Refresh list pasien...");
     setModalVisible(false);
-    // nanti bisa ditambahkan untuk refresh list
+    fetchPasien(userToken);
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <ActivityIndicator
+          size="large"
+          color="#448AFF"
+          style={{ marginTop: 50 }}
+        />
+      );
+    }
+
+    if (filteredPasienList.length === 0) {
+      return <Text style={styles.emptyText}>Tidak ada pasien ditemukan.</Text>;
+    }
+
+    return (
+      <View>
+        {filteredPasienList.map((pasien, index) => (
+          <PasienCard
+            key={pasien.no_reg || `pasien-${index}`}
+            pasien={pasien}
+          />
+        ))}
+      </View>
+    );
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerLogo}>
           <Image
@@ -101,7 +175,7 @@ export default function HomeScreen() {
         <Ionicons name="notifications-outline" size={24} color="#333" />
       </View>
 
-      {/* Search Bar */}
+      {/* SEARCH */}
       <View style={styles.searchContainer}>
         <Ionicons
           name="search"
@@ -109,17 +183,18 @@ export default function HomeScreen() {
           color="#999"
           style={styles.searchIcon}
         />
-        <TextInput style={styles.searchInput} placeholder="Search..." />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cari nama pasien..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
       </View>
 
-      {/* Konten (Daftar Pasien) */}
-      <ScrollView style={styles.contentArea}>
-        {pasienList.map((pasien, index) => (
-          <PasienCard key={index} pasien={pasien} />
-        ))}
-      </ScrollView>
+      {/* LIST PASIEN */}
+      <ScrollView style={styles.contentArea}>{renderContent()}</ScrollView>
 
-      {/* Bottom Nav */}
+      {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
         <View style={styles.navItem}>
           <Ionicons name="home" size={24} color="#448AFF" />
@@ -143,25 +218,27 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Modal Form Tambah Pasien */}
+      {/* MODAL */}
       <Modal
         visible={modalVisible}
         animationType="slide"
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <FormTambahPasien
+        <TambahPasienForm
           onClose={() => setModalVisible(false)}
           onSuccess={handleFormSuccess}
+          token={userToken}
+          apiUrl={`http://10.0.2.2:8000/api/bidan/register-pasien`}
         />
       </Modal>
     </View>
   );
 }
 
-// Styles tetap sama seperti versi sebelumnya
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -181,6 +258,7 @@ const styles = StyleSheet.create({
     marginRight: 8
   },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
+
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -190,15 +268,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingHorizontal: 10,
     elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
     borderWidth: 1,
     borderColor: "#eee"
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, height: 40 },
+
   contentArea: { flex: 1, paddingHorizontal: 20, marginTop: 10 },
+
+  emptyText: {
+    textAlign: "center",
+    marginTop: 50,
+    fontSize: 16,
+    color: "#999"
+  },
+
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -207,10 +291,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     borderWidth: 2,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5
+    elevation: 2
   },
   cardInfo: { flex: 1, marginLeft: 15 },
   cardNama: {
@@ -222,6 +303,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4
   },
   cardDetail: { fontSize: 14, color: "#777", marginTop: 4 },
+
   badge: {
     position: "absolute",
     top: 10,
@@ -231,6 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12
   },
   badgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "bold" },
+
   bottomNav: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -238,15 +321,13 @@ const styles = StyleSheet.create({
     height: 60,
     backgroundColor: "#FFFFFF",
     elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0"
   },
   navItem: { alignItems: "center", flex: 1 },
   navText: { fontSize: 12, color: "#999" },
   navTextActive: { fontSize: 12, color: "#448AFF", fontWeight: "bold" },
+
   addButton: {
     width: 60,
     height: 60,
@@ -255,11 +336,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     bottom: 25,
-    elevation: 5,
-    shadowColor: "#448AFF",
-    shadowOpacity: 0.3,
-    shadowRadius: 5
+    elevation: 5
   },
+
   chatButton: {
     position: "absolute",
     right: 20,

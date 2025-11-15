@@ -8,69 +8,57 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  KeyboardAvoidingView, // ⬅️ Tambahkan
-  Platform // ⬅️ Tambahkan
+  KeyboardAvoidingView,
+  Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// -------------------------------------------------------------------------
-// ❗️ PENTING: SESUAIKAN FIELD DI BAWAH INI
-// -------------------------------------------------------------------------
-// Saya tidak tahu field apa saja yg dibutuhkan BE untuk 'register-pasien'.
-// Saya tebak berdasarkan UI-mu (nama, umur) dan standar (username, password).
-// SESUAIKAN ini dengan apa yang diminta oleh teman BE kamu.
-// -------------------------------------------------------------------------
-
-export default function TambahPasienForm({
-  onClose,
-  onSuccess,
-  token,
-  apiUrl
-}) {
-  // State untuk data form
+export default function TambahPasienForm({ onClose, onSuccess, token }) {
   const [nama, setNama] = useState("");
   const [umur, setUmur] = useState("");
-  const [noRegister, setNoRegister] = useState("");
-  const [username, setUsername] = useState(""); // ⬅️ Mungkin perlu?
-  const [password, setPassword] = useState(""); // ⬅️ Mungkin perlu?
+  const [noReg, setNoReg] = useState("");
+  const [alamat, setAlamat] = useState("");
+  const [gravida, setGravida] = useState("");
+  const [paritas, setParitas] = useState("");
+  const [abortus, setAbortus] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
-    // Validasi sederhana
-    // ❗️ Sesuaikan validasi ini
-    if (!nama || !umur || !username || !password) {
-      Alert.alert("Error", "Harap isi Nama, Umur, Username, dan Password.");
+    if (!nama || !umur || !alamat || !gravida || !paritas || !abortus) {
+      Alert.alert("Error", "Harap isi semua field (kecuali No. Reg).");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // ❗️ Sesuaikan body ini dgn yg dibutuhkan BE
-      // Key di sini (cth: 'nama_pasien') HARUS SAMA dgn yg diharapkan BE
       const body = JSON.stringify({
-        nama_pasien: nama, // Saya tebak nama key-nya
+        nama: nama,
         umur: umur,
-        no_register: noRegister,
-        username: username,
-        password: password
+        no_reg: noReg,
+        alamat: alamat,
+        gravida: gravida,
+        paritas: paritas,
+        abortus: abortus
       });
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}` // ⬅️ Pakai token
-        },
-        body: body
-      });
+      const response = await fetch(
+        `http://10.0.2.2:8000/api/bidan/register-pasien`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: body
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        // Coba ambil pesan error dari validasi Laravel
         if (response.status === 422 && data.errors) {
           const firstError = Object.values(data.errors)[0][0];
           throw new Error(firstError || "Data tidak valid.");
@@ -78,10 +66,9 @@ export default function TambahPasienForm({
         throw new Error(data.message || "Gagal mendaftarkan pasien.");
       }
 
-      // Jika sukses
       setIsLoading(false);
       Alert.alert("Sukses", "Pasien baru berhasil didaftarkan.");
-      onSuccess(); // ⬅️ Panggil fungsi sukses dari HomeScreen
+      onSuccess();
     } catch (error) {
       setIsLoading(false);
       Alert.alert("Registrasi Gagal", error.message);
@@ -89,12 +76,10 @@ export default function TambahPasienForm({
   };
 
   return (
-    // View ini bertindak sebagai "overlay" semi-transparan
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.modalOverlay}
     >
-      {/* Ini adalah card form-nya */}
       <View style={styles.formContainer}>
         {/* Header Form */}
         <View style={styles.formHeader}>
@@ -104,7 +89,6 @@ export default function TambahPasienForm({
           </TouchableOpacity>
         </View>
 
-        {/* ⬅️ ScrollView HANYA membungkus form, bukan header */}
         <ScrollView>
           {/* Form Inputs */}
           <Text style={styles.label}>Nama Lengkap</Text>
@@ -124,32 +108,48 @@ export default function TambahPasienForm({
             keyboardType="numeric"
           />
 
-          <Text style={styles.label}>No. Register (Opsional)</Text>
+          <Text style={styles.label}>No. Registrasi (Opsional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: P-030"
-            value={noRegister}
-            onChangeText={setNoRegister}
+            placeholder="Contoh: 301"
+            value={noReg}
+            onChangeText={setNoReg}
           />
 
-          <View style={styles.divider} />
-
-          <Text style={styles.label}>Username (untuk login pasien)</Text>
+          <Text style={styles.label}>Alamat</Text>
           <TextInput
             style={styles.input}
-            placeholder="Buat username untuk pasien"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
+            placeholder="Masukkan alamat lengkap"
+            value={alamat}
+            onChangeText={setAlamat}
+            multiline
           />
 
-          <Text style={styles.label}>Password (untuk login pasien)</Text>
+          <Text style={styles.label}>Gravida</Text>
           <TextInput
             style={styles.input}
-            placeholder="Buat password untuk pasien"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={true}
+            placeholder="Contoh: 1"
+            value={gravida}
+            onChangeText={setGravida}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.label}>Paritas</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Contoh: 0"
+            value={paritas}
+            onChangeText={setParitas}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.label}>Abortus</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Contoh: 0"
+            value={abortus}
+            onChangeText={setAbortus}
+            keyboardType="numeric"
           />
 
           {/* Tombol Submit */}
@@ -173,15 +173,15 @@ export default function TambahPasienForm({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // ⬅️ Latar belakang gelap
-    justifyContent: "flex-end" // ⬅️ Form muncul dari bawah
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end"
   },
   formContainer: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
-    maxHeight: "80%" // ⬅️ Batasi tinggi modal
+    maxHeight: "85%"
   },
   formHeader: {
     flexDirection: "row",
@@ -209,13 +209,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e0e0e0",
     paddingHorizontal: 15,
-    height: 45,
-    fontSize: 14
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#eee",
-    marginVertical: 20
+    minHeight: 45,
+    fontSize: 14,
+    textAlignVertical: "top"
   },
   submitButton: {
     backgroundColor: "#448AFF",

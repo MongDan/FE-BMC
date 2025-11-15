@@ -9,11 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
-import { useNavigate } from "react-router-native"; // ⬅️ import useNavigate
+import { useNavigate } from "react-router-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,17 +22,20 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigate = useNavigate(); // ⬅️ hook navigate
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert("Login Gagal", "Username dan Password tidak boleh kosong.");
+      alert("Username dan Password tidak boleh kosong.");
       return;
     }
+
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/login-bidan`, {
+      const response = await fetch(`http://10.0.2.2:8000/api/login-bidan`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -42,28 +45,29 @@ export default function LoginScreen() {
       });
 
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.message || "Username atau Password salah.");
       }
 
       setIsLoading(false);
-      console.log("Respon sukses:", data);
 
-      // ⬅️ Redirect ke HomeScreen setelah login berhasil
-      Alert.alert("Sukses", "Login berhasil!", [
-        { text: "OK", onPress: () => navigate("/home") }
-      ]);
-    } catch (error) {
-      setIsLoading(false);
-      console.error("Error saat login:", error.message);
-
-      let errorMessage = error.message;
-      if (error.message.includes("Network request failed")) {
-        errorMessage =
-          "Koneksi ke server gagal. Pastikan 'adb reverse tcp:8000 tcp:8000' sudah dijalankan.";
+      if (data.token) {
+        await AsyncStorage.setItem("userToken", data.token);
+        console.log("Token berhasil disimpan!");
+      } else {
+        throw new Error("Token tidak ada di server.");
       }
 
-      Alert.alert("Login Gagal", errorMessage);
+      setShowSuccess(true);
+
+      setTimeout(() => {
+        setShowSuccess(false);
+        navigate("/home");
+      }, 1500);
+    } catch (error) {
+      setIsLoading(false);
+      alert(error.message);
     }
   };
 
@@ -72,6 +76,24 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      {/* ============================ */}
+      {/*       POPUP SUKSES           */}
+      {/* ============================ */}
+      {showSuccess && (
+        <View style={styles.successOverlay}>
+          <View style={styles.successBox}>
+            <FontAwesome name="check-circle" size={55} color="#4CAF50" />
+            <Text style={styles.successTitle}>Login Berhasil</Text>
+            <Text style={styles.successDesc}>
+              Selamat datang kembali, {username}!
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ============================ */}
+      {/*            HEADER            */}
+      {/* ============================ */}
       <View style={styles.header}>
         <Image source={require("../../assets/Logo.png")} style={styles.logo} />
         <View style={styles.textBlock}>
@@ -80,6 +102,7 @@ export default function LoginScreen() {
         </View>
       </View>
 
+      {/* IMAGE ATAS */}
       <View style={styles.imageWrapper}>
         <Image
           source={require("../../assets/Dokter.png")}
@@ -87,6 +110,7 @@ export default function LoginScreen() {
         />
       </View>
 
+      {/* FORM */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -94,6 +118,7 @@ export default function LoginScreen() {
         <View style={styles.loginCard}>
           <Text style={styles.loginTitle}>Login</Text>
 
+          {/* USERNAME */}
           <Text style={styles.label}>Username:</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -115,6 +140,7 @@ export default function LoginScreen() {
             />
           </View>
 
+          {/* PASSWORD */}
           <Text style={styles.label}>Password:</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -136,16 +162,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.rememberRow}>
-            <View style={styles.checkboxContainer}>
-              <View style={styles.checkbox} />
-              <Text style={styles.rememberText}>Remember me</Text>
-            </View>
-            <TouchableOpacity>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
-
+          {/* LOGIN BUTTON */}
           <TouchableOpacity
             style={styles.loginButton}
             onPress={handleLogin}
@@ -170,6 +187,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end"
   },
+
+  successOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999
+  },
+  successBox: {
+    width: 260,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingVertical: 25,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    elevation: 8
+  },
+  successTitle: {
+    marginTop: 10,
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333"
+  },
+  successDesc: {
+    marginTop: 5,
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center"
+  },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -184,19 +235,10 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     marginRight: 6
   },
-  textBlock: {
-    flexDirection: "column"
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#000"
-  },
-  subtitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#448AFF"
-  },
+  textBlock: { flexDirection: "column" },
+  title: { fontSize: 22, fontWeight: "bold", color: "#000" },
+  subtitle: { fontSize: 22, fontWeight: "bold", color: "#448AFF" },
+
   imageWrapper: {
     position: "absolute",
     top: 100,
@@ -209,6 +251,7 @@ const styles = StyleSheet.create({
     height: 500,
     resizeMode: "contain"
   },
+
   scrollContent: {
     flexGrow: 1,
     justifyContent: "flex-end",
@@ -222,12 +265,7 @@ const styles = StyleSheet.create({
     paddingVertical: 70,
     paddingHorizontal: 25,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 4,
-    zIndex: 1
+    elevation: 4
   },
   loginTitle: {
     fontSize: 24,
@@ -236,6 +274,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: -30
   },
+
   label: {
     alignSelf: "flex-start",
     marginTop: 10,
@@ -258,43 +297,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14
   },
-  icon: {
-    marginLeft: 10
-  },
-  rememberRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "95%",
-    marginTop: 10,
-    alignItems: "center"
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center"
-  },
-  checkbox: {
-    width: 14,
-    height: 14,
-    backgroundColor: "#448AFF",
-    marginRight: 6
-  },
-  rememberText: {
-    fontSize: 12,
-    color: "#000"
-  },
-  forgotText: {
-    fontSize: 12,
-    color: "#000",
-    textDecorationLine: "underline"
-  },
+  icon: { marginLeft: 10 },
+
   loginButton: {
     backgroundColor: "#448AFF",
     borderRadius: 25,
     paddingVertical: 10,
     paddingHorizontal: 45,
-    marginTop: 15,
-    minHeight: 40,
-    justifyContent: "center"
+    marginTop: 20
   },
   loginButtonText: {
     color: "#fff",
