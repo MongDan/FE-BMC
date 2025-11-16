@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   Alert,
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
   Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 export default function TambahPasienForm({ onClose, onSuccess, token }) {
   const [nama, setNama] = useState("");
@@ -21,26 +22,62 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
   const [gravida, setGravida] = useState("");
   const [paritas, setParitas] = useState("");
   const [abortus, setAbortus] = useState("");
+  const [ketubanPecah, setKetubanPecah] = useState(null);
 
+  const [tglJamPemeriksaan, setTglJamPemeriksaan] = useState("");
+  const [jamKetubanPecah, setJamKetubanPecah] = useState("");
+  const [tglJamMules, setTglJamMules] = useState("");
+
+  const [showPicker, setShowPicker] = useState(false);
+  const [currentPicker, setCurrentPicker] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleShowPicker = (picker) => {
+    setCurrentPicker(picker);
+    setShowPicker(true);
+  };
+
+  const handleConfirmPicker = (date) => {
+    const formatted = date.toISOString().slice(0, 19).replace("T", " ");
+    if (currentPicker === "pemeriksaan") setTglJamPemeriksaan(formatted);
+    if (currentPicker === "ketuban") setJamKetubanPecah(formatted);
+    if (currentPicker === "mules") setTglJamMules(formatted);
+    setShowPicker(false);
+  };
+
+  const handleCancelPicker = () => setShowPicker(false);
+
   const handleSubmit = async () => {
-    if (!nama || !umur || !alamat || !gravida || !paritas || !abortus) {
+    if (
+      !nama ||
+      !umur ||
+      !alamat ||
+      !gravida ||
+      !paritas ||
+      !abortus ||
+      !tglJamPemeriksaan ||
+      ketubanPecah === null ||
+      !tglJamMules ||
+      (ketubanPecah === true && !jamKetubanPecah)
+    ) {
       Alert.alert("Error", "Harap isi semua field (kecuali No. Reg).");
       return;
     }
 
     setIsLoading(true);
-
     try {
       const body = JSON.stringify({
-        nama: nama,
-        umur: umur,
-        no_reg: noReg,
-        alamat: alamat,
-        gravida: gravida,
-        paritas: paritas,
-        abortus: abortus
+        nama,
+        umur,
+        no_reg: noReg ? noReg : null,
+        alamat,
+        gravida,
+        paritas,
+        abortus,
+        tgl_jam_pemeriksaan: tglJamPemeriksaan,
+        ketuban_pecah: ketubanPecah,
+        jam_ketuban_pecah: ketubanPecah ? jamKetubanPecah : null,
+        tgl_jam_mules: tglJamMules
       });
 
       const response = await fetch(
@@ -52,13 +89,12 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
             Accept: "application/json",
             Authorization: `Bearer ${token}`
           },
-          body: body
+          body
         }
       );
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         if (response.status === 422 && data.errors) {
           const firstError = Object.values(data.errors)[0][0];
           throw new Error(firstError || "Data tidak valid.");
@@ -81,7 +117,6 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       style={styles.modalOverlay}
     >
       <View style={styles.formContainer}>
-        {/* Header Form */}
         <View style={styles.formHeader}>
           <Text style={styles.formTitle}>Tambah Pasien Baru</Text>
           <TouchableOpacity onPress={onClose}>
@@ -90,7 +125,6 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
         </View>
 
         <ScrollView>
-          {/* Form Inputs */}
           <Text style={styles.label}>Nama Lengkap</Text>
           <TextInput
             style={styles.input}
@@ -114,6 +148,7 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
             placeholder="Contoh: 301"
             value={noReg}
             onChangeText={setNoReg}
+            keyboardType="numeric"
           />
 
           <Text style={styles.label}>Alamat</Text>
@@ -152,7 +187,74 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
             keyboardType="numeric"
           />
 
-          {/* Tombol Submit */}
+          <Text style={styles.label}>Tanggal & Jam Pemeriksaan</Text>
+          <TouchableOpacity
+            style={styles.input}
+            onPress={() => handleShowPicker("pemeriksaan")}
+          >
+            <Text>{tglJamPemeriksaan || "Pilih tanggal & jam"}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>Apakah Ketuban Pecah?</Text>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              style={[
+                styles.buttonOption,
+                ketubanPecah === true && styles.buttonOptionSelected
+              ]}
+              onPress={() => setKetubanPecah(true)}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  ketubanPecah === true && styles.buttonTextSelected
+                ]}
+              >
+                Ya
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.buttonOption,
+                ketubanPecah === false && styles.buttonOptionSelected
+              ]}
+              onPress={() => {
+                setKetubanPecah(false);
+                setJamKetubanPecah("");
+              }}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  ketubanPecah === false && styles.buttonTextSelected
+                ]}
+              >
+                Tidak
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {ketubanPecah === true && (
+            <>
+              <Text style={styles.label}>Tanggal & Jam Ketuban Pecah</Text>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => handleShowPicker("ketuban")}
+              >
+                <Text>{jamKetubanPecah || "Pilih tanggal & jam"}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          <Text style={styles.label}>Tanggal & Jam Mulai Mules</Text>
+          <TouchableOpacity
+            style={styles.input}
+            onPress={() => handleShowPicker("mules")}
+          >
+            <Text>{tglJamMules || "Pilih tanggal & jam"}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.submitButton}
             onPress={handleSubmit}
@@ -165,6 +267,14 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
             )}
           </TouchableOpacity>
         </ScrollView>
+
+        <DateTimePickerModal
+          isVisible={showPicker}
+          mode="datetime"
+          onConfirm={handleConfirmPicker}
+          onCancel={handleCancelPicker}
+          is24Hour={true}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -173,11 +283,11 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end"
   },
   formContainer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#fff",
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
@@ -210,8 +320,7 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
     paddingHorizontal: 15,
     minHeight: 45,
-    fontSize: 14,
-    textAlignVertical: "top"
+    justifyContent: "center"
   },
   submitButton: {
     backgroundColor: "#448AFF",
@@ -222,8 +331,35 @@ const styles = StyleSheet.create({
     marginBottom: 20
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: "#fff",
     fontSize: 16,
     fontWeight: "bold"
+  },
+  buttonGroup: {
+    flexDirection: "row",
+    marginTop: 5,
+    marginBottom: 10
+  },
+  buttonOption: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    marginHorizontal: 5
+  },
+  buttonOptionSelected: {
+    backgroundColor: "#448AFF",
+    borderColor: "#448AFF"
+  },
+  buttonText: {
+    fontSize: 14,
+    color: "#555",
+    fontWeight: "bold"
+  },
+  buttonTextSelected: {
+    color: "#fff"
   }
 });

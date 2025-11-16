@@ -13,10 +13,30 @@ import {
 import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import TambahPasienForm from "./TambahPasienForm";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ProfileScreen from "../ProfileScreen/ProfileScreen";
 
+// --- Fungsi helper ---
+const formatNoReg = (noReg) => {
+  if (!noReg) return "";
+  const tahun = new Date().getFullYear();
+  const nomor = noReg.toString().replace(".00", "");
+  return `${tahun}-${nomor}`;
+};
+
+const formatDatetime = (datetime) => {
+  if (!datetime) return "-";
+  const date = new Date(datetime);
+  return `${date.getDate()} ${date.toLocaleString("id-ID", {
+    month: "short"
+  })} ${date.getFullYear()}, ${date.getHours()}:${date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+// --- PasienCard Component ---
 const PasienCard = ({ pasien }) => {
   const status = pasien.status || "non-aktif";
-
   const getStatusStyle = () => {
     switch (status.toLowerCase()) {
       case "aktif":
@@ -39,20 +59,45 @@ const PasienCard = ({ pasien }) => {
         };
     }
   };
-
   const { borderColor, badgeColor, badgeText } = getStatusStyle();
 
   return (
     <View style={[styles.card, { borderColor }]}>
       <FontAwesome name="user-circle" size={50} color="#555" />
-
       <View style={styles.cardInfo}>
         <Text style={styles.cardNama}>{pasien.nama}</Text>
         <Text style={styles.cardDetail}>Umur: {pasien.umur} tahun</Text>
-        <Text style={styles.cardDetail}>No. Register: {pasien.no_reg}</Text>
+        <Text style={styles.cardDetail}>
+          No. Register: {formatNoReg(pasien.no_reg)}
+        </Text>
         <Text style={styles.cardDetail}>Alamat: {pasien.alamat}</Text>
+        {pasien.jam_ketuban_pecah && (
+          <View style={styles.cardDateRow}>
+            <Ionicons
+              name="calendar"
+              size={16}
+              color="#777"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.cardDetail}>
+              Jam Ketuban Pecah: {formatDatetime(pasien.jam_ketuban_pecah)}
+            </Text>
+          </View>
+        )}
+        {pasien.tgl_jam_mules && (
+          <View style={styles.cardDateRow}>
+            <Ionicons
+              name="calendar"
+              size={16}
+              color="#777"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.cardDetail}>
+              Tgl & Jam Mulai Mules: {formatDatetime(pasien.tgl_jam_mules)}
+            </Text>
+          </View>
+        )}
       </View>
-
       <View style={[styles.badge, { backgroundColor: badgeColor }]}>
         <Text style={styles.badgeText}>{badgeText}</Text>
       </View>
@@ -60,26 +105,22 @@ const PasienCard = ({ pasien }) => {
   );
 };
 
+// --- HomeScreen Component ---
 export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [userToken, setUserToken] = useState(null);
   const [pasienList, setPasienList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeScreen, setActiveScreen] = useState("home");
 
   const filteredPasienList = pasienList.filter((pasien) =>
     pasien.nama.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const fetchPasien = async (token) => {
-    if (!token) {
-      console.log("⛔ Tidak bisa fetch: token tidak ada");
-      return;
-    }
-
+    if (!token) return;
     setIsLoading(true);
-
     try {
       const response = await fetch(`http://10.0.2.2:8000/api/bidan/pasien`, {
         method: "GET",
@@ -88,10 +129,7 @@ export default function HomeScreen() {
           Authorization: `Bearer ${token}`
         }
       });
-
       const data = await response.json();
-      console.log("📌 HASIL FETCH PASIEN:", data);
-
       setPasienList(data.daftar_pasien || []);
     } catch (error) {
       console.log("❌ ERROR FETCH:", error);
@@ -104,33 +142,25 @@ export default function HomeScreen() {
     const loadTokenAndFetch = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
-
-        console.log("🔑 TOKEN TERBACA:", token);
-
         if (token) {
           setUserToken(token);
           await fetchPasien(token);
-        } else {
-          console.log("⚠️ Token tidak ditemukan.");
-          setIsLoading(false);
-        }
+        } else setIsLoading(false);
       } catch (err) {
         console.log("❌ ERROR LOAD TOKEN:", err);
         setIsLoading(false);
       }
     };
-
     loadTokenAndFetch();
   }, []);
 
   const handleFormSuccess = () => {
-    console.log("🔄 Refresh list pasien...");
     setModalVisible(false);
     fetchPasien(userToken);
   };
 
-  const renderContent = () => {
-    if (isLoading) {
+  const renderHomeContent = () => {
+    if (isLoading)
       return (
         <ActivityIndicator
           size="large"
@@ -138,27 +168,15 @@ export default function HomeScreen() {
           style={{ marginTop: 50 }}
         />
       );
-    }
-
-    if (filteredPasienList.length === 0) {
+    if (filteredPasienList.length === 0)
       return <Text style={styles.emptyText}>Tidak ada pasien ditemukan.</Text>;
-    }
-
-    return (
-      <View>
-        {filteredPasienList.map((pasien, index) => (
-          <PasienCard
-            key={pasien.no_reg || `pasien-${index}`}
-            pasien={pasien}
-          />
-        ))}
-      </View>
-    );
+    return filteredPasienList.map((pasien, index) => (
+      <PasienCard key={pasien.no_reg || `pasien-${index}`} pasien={pasien} />
+    ));
   };
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerLogo}>
           <Image
@@ -175,31 +193,50 @@ export default function HomeScreen() {
         <Ionicons name="notifications-outline" size={24} color="#333" />
       </View>
 
-      {/* SEARCH */}
-      <View style={styles.searchContainer}>
-        <Ionicons
-          name="search"
-          size={20}
-          color="#999"
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Cari nama pasien..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
+      {activeScreen === "home" && (
+        <>
+          <View style={styles.searchContainer}>
+            <Ionicons
+              name="search"
+              size={20}
+              color="#999"
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Cari nama pasien..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <ScrollView style={styles.contentArea}>
+            {renderHomeContent()}
+          </ScrollView>
+        </>
+      )}
 
-      {/* LIST PASIEN */}
-      <ScrollView style={styles.contentArea}>{renderContent()}</ScrollView>
+      {activeScreen === "profile" && (
+        <ProfileScreen style={styles.contentArea} />
+      )}
 
-      {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
-        <View style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#448AFF" />
-          <Text style={styles.navTextActive}>Home</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => setActiveScreen("home")}
+        >
+          <Ionicons
+            name="home"
+            size={24}
+            color={activeScreen === "home" ? "#448AFF" : "#999"}
+          />
+          <Text
+            style={
+              activeScreen === "home" ? styles.navTextActive : styles.navText
+            }
+          >
+            Home
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.chatButton}>
           <MaterialIcons name="chat-bubble" size={24} color="white" />
@@ -212,13 +249,25 @@ export default function HomeScreen() {
           <Ionicons name="add" size={40} color="white" />
         </TouchableOpacity>
 
-        <View style={styles.navItem}>
-          <FontAwesome name="user-o" size={24} color="#999" />
-          <Text style={styles.navText}>Profil</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => setActiveScreen("profile")}
+        >
+          <FontAwesome
+            name={activeScreen === "profile" ? "user" : "user-o"}
+            size={24}
+            color={activeScreen === "profile" ? "#448AFF" : "#999"}
+          />
+          <Text
+            style={
+              activeScreen === "profile" ? styles.navTextActive : styles.navText
+            }
+          >
+            Profil
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* MODAL */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -229,7 +278,6 @@ export default function HomeScreen() {
           onClose={() => setModalVisible(false)}
           onSuccess={handleFormSuccess}
           token={userToken}
-          apiUrl={`http://10.0.2.2:8000/api/bidan/register-pasien`}
         />
       </Modal>
     </View>
@@ -238,7 +286,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -258,7 +305,6 @@ const styles = StyleSheet.create({
     marginRight: 8
   },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
-
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -273,19 +319,16 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, height: 40 },
-
   contentArea: { flex: 1, paddingHorizontal: 20, marginTop: 10 },
-
   emptyText: {
     textAlign: "center",
     marginTop: 50,
     fontSize: 16,
     color: "#999"
   },
-
   card: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "#FFFFFF",
     borderRadius: 15,
     padding: 15,
@@ -302,8 +345,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
     paddingBottom: 4
   },
-  cardDetail: { fontSize: 14, color: "#777", marginTop: 4 },
-
+  cardDetail: { fontSize: 14, color: "#555", marginTop: 4 },
+  cardDateRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   badge: {
     position: "absolute",
     top: 10,
@@ -313,7 +356,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12
   },
   badgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "bold" },
-
   bottomNav: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -327,7 +369,6 @@ const styles = StyleSheet.create({
   navItem: { alignItems: "center", flex: 1 },
   navText: { fontSize: 12, color: "#999" },
   navTextActive: { fontSize: 12, color: "#448AFF", fontWeight: "bold" },
-
   addButton: {
     width: 60,
     height: 60,
@@ -338,7 +379,6 @@ const styles = StyleSheet.create({
     bottom: 25,
     elevation: 5
   },
-
   chatButton: {
     position: "absolute",
     right: 20,
