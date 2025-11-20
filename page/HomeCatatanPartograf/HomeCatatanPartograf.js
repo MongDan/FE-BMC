@@ -6,45 +6,57 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  Platform
 } from "react-native";
-import { MaterialIcons, Ionicons } from "@expo/vector-icons";
-import { useNavigate, useLocation } from "react-router-native";
+import { MaterialIcons, Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigate, useLocation } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ------------------ COMPONENT MENU CARD ------------------
-const MenuCard = ({
-  title,
-  icon,
-  color,
-  iconColor,
-  onPress,
-  disabled = false,
-  loading = false
-}) => (
+// ======================= MEDICAL THEME ==========================
+const THEME = {
+  bg: "#F4F6F8",       // Abu-abu klinis
+  primary: "#0277BD",  // Medical Blue
+  textMain: "#263238", // Dark Blue Grey
+  textSec: "#78909C",  // Abu-abu teks
+  cardBg: "#FFFFFF",
+  
+  // Warna Menu
+  menuData: "#D81B60",      // Pink (Data Awal)
+  menuKontraksi: "#0277BD", // Blue (Kontraksi)
+  menu30: "#00897B",        // Teal (30 Menit)
+  menu4h: "#F9A825",        // Orange/Gold (4 Jam)
+  
+  disabled: "#CFD8DC"
+};
+
+// ------------------ COMPONENT: DASHBOARD BUTTON ------------------
+const DashboardButton = ({ title, subtitle, icon, color, onPress, disabled, loading }) => (
   <TouchableOpacity
-    style={[
-      styles.card,
-      { backgroundColor: color },
-      disabled && styles.cardDisabled
-    ]}
+    style={[styles.dashBtn, disabled && styles.dashBtnDisabled]}
     onPress={onPress}
     disabled={disabled || loading}
-    activeOpacity={0.7}
+    activeOpacity={0.8}
   >
-    <View style={styles.iconCircle}>
+    <View style={[styles.iconCircle, { backgroundColor: disabled ? "#ECEFF1" : color + '15' }]}>
       {loading ? (
-        <ActivityIndicator size="small" color={iconColor} />
+        <ActivityIndicator color={color} size="small" />
       ) : (
-        <MaterialIcons name={icon} size={32} color={iconColor} />
+        <MaterialCommunityIcons name={icon} size={32} color={disabled ? "#B0BEC5" : color} />
       )}
     </View>
-    <Text style={[styles.cardText, disabled && { color: "#999" }]}>
-      {title}
-    </Text>
+    
+    <View style={styles.btnContent}>
+      <Text style={[styles.btnTitle, disabled && { color: "#90A4AE" }]}>{title}</Text>
+      <Text style={styles.btnSubtitle}>{disabled ? "Akses Terkunci" : subtitle}</Text>
+    </View>
+
     {disabled && (
-      <Text style={styles.cardStatusText}>Harus isi Data Partograf</Text>
+      <View style={styles.lockIcon}>
+        <Ionicons name="lock-closed" size={16} color="#B0BEC5" />
+      </View>
     )}
   </TouchableOpacity>
 );
@@ -56,243 +68,226 @@ const HomeCatatanPartograf = () => {
 
   const [catatanPartografId, setCatatanPartografId] = useState(null);
   const [isCheckingId, setIsCheckingId] = useState(true);
-  const isMonitorDisabled = !catatanPartografId;
 
-  // Cek apakah Catatan ID sudah disimpan
   useEffect(() => {
     const loadCatatanId = async () => {
       setIsCheckingId(true);
       if (partografId) {
-        const savedCatatanId = await AsyncStorage.getItem(
-          `catatanId_${partografId}`
-        );
-        if (savedCatatanId) {
-          setCatatanPartografId(savedCatatanId);
-        }
+        const saved = await AsyncStorage.getItem(`catatanId_${partografId}`);
+        if (saved) setCatatanPartografId(saved);
       }
       setIsCheckingId(false);
     };
     loadCatatanId();
   }, [partografId]);
 
+  // -- HANDLERS --
   const handleDataPartografPress = () => {
-    if (partografId) {
-      navigate(`/partograf/${partografId}/catatan`);
-    } else {
-      Alert.alert("Error", "ID Partograf tidak ditemukan.");
-    }
+    if (partografId) navigate(`/partograf/${partografId}/catatan`);
+    else Alert.alert("Error", "ID Partograf Missing");
   };
 
   const handleMonitorKontraksiPress = () => {
-    if (!catatanPartografId) {
-      Alert.alert(
-        "Aksi Ditolak",
-        "Anda harus mengisi 'Data Partograf' terlebih dahulu."
-      );
-      return;
-    }
-
-    navigate(`/partograf/${partografId}/kontraksi`, {
-      state: { catatanPartografId }
-    });
+    if (!catatanPartografId) return Alert.alert("Akses Ditolak", "Mohon lengkapi 'Data Awal Partograf' terlebih dahulu.");
+    navigate(`/partograf/${partografId}/kontraksi`, { state: { catatanPartografId } });
   };
 
-  // --------- RENDER CONTENT ----------
+  // -- RENDER CONTENT --
   const renderContent = () => {
-    const statusText = catatanPartografId
-      ? "Catatan Aktif Ditemukan"
-      : "Menunggu Input Data Partograf";
-    const statusColor = catatanPartografId
-      ? styles.statusTextSuccess
-      : styles.statusTextWarning;
-    const statusIcon = catatanPartografId
-      ? "checkmark-circle-outline"
-      : "alert-circle-outline";
+    const hasData = !!catatanPartografId;
 
     if (isCheckingId) {
       return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#AB47BC" />
-          <Text style={styles.infoText}>Memeriksa status catatan...</Text>
+        <View style={styles.loadingView}>
+          <ActivityIndicator size="large" color={THEME.primary} />
+          <Text style={styles.loadingText}>Memuat Rekam Medis...</Text>
         </View>
       );
     }
 
     return (
-      <View style={styles.contentWrapper}>
-        {/* STATUS BOX */}
-        <View style={styles.statusBox}>
-          <Ionicons
-            name={statusIcon}
-            size={24}
-            style={{ marginRight: 8 }}
-            color={statusColor.color}
-          />
-          <Text style={[styles.statusText, statusColor]}>{statusText}</Text>
+      <View style={styles.contentContainer}>
+        
+        {/* 1. PATIENT CARD (HEADER) */}
+        <View style={styles.patientCard}>
+          <View style={styles.patientRow}>
+            <View style={styles.avatarBox}>
+              <FontAwesome5 name="user-injured" size={24} color="#FFF" />
+            </View>
+            <View style={{flex: 1}}>
+              <Text style={styles.patientLabel}>NO. REGISTRASI</Text>
+              <Text style={styles.patientValue}>{partografId || "N/A"}</Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: hasData ? '#E8F5E9' : '#FFEBEE' }]}>
+              <View style={[styles.statusDot, { backgroundColor: hasData ? '#2E7D32' : '#C62828' }]} />
+              <Text style={[styles.statusText, { color: hasData ? '#2E7D32' : '#C62828' }]}>
+                {hasData ? "AKTIF" : "PENDING"}
+              </Text>
+            </View>
+          </View>
+          
+          {!hasData && (
+            <View style={styles.alertBox}>
+              <Ionicons name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
+              <Text style={styles.alertText}>Isi Data Awal untuk membuka menu Kontraksi & 30 Menit.</Text>
+            </View>
+          )}
         </View>
 
-        <Text style={styles.infoDetail}>
-          ID Rujukan: {partografId || "N/A"}
-        </Text>
+        <Text style={styles.sectionHeader}>DASHBOARD OBSERVASI</Text>
 
-        {/* GRID MENU */}
+        {/* 2. DASHBOARD GRID */}
         <View style={styles.gridContainer}>
-          {/* MONITOR KONTRAKSI */}
-          <MenuCard
-            title="Monitor Kontraksi"
-            icon="monitor-heart"
-            color="#E3F2FD"
-            iconColor="#2962FF"
-            onPress={handleMonitorKontraksiPress}
-            disabled={isMonitorDisabled}
-          />
-
-          {/* DATA PARTOGRAF */}
-          <MenuCard
-            title="Data Partograf"
-            icon="description"
-            color="#FCE4EC"
-            iconColor="#D81B60"
+          
+          {/* A. DATA AWAL */}
+          <DashboardButton 
+            title="Data Awal"
+            subtitle="Identitas & Kondisi"
+            icon="clipboard-account"
+            color={THEME.menuData}
             onPress={handleDataPartografPress}
           />
 
-          {/* PER 30 MENIT */}
-          <MenuCard
-            title="Per 30 Menit"
-            icon="access-time"
-            color="#E8F5E9"
-            iconColor="#4CAF50"
-            onPress={() => navigate(`/partograf/${partografId}/catatan/per30`)}
+          {/* B. KONTRAKSI */}
+          <DashboardButton 
+            title="Kontraksi"
+            subtitle="Monitor Real-time"
+            icon="timer-sand"
+            color={THEME.menuKontraksi}
+            onPress={handleMonitorKontraksiPress}
+            disabled={!hasData}
           />
 
-          {/* PER 4 JAM */}
-          <MenuCard
-            title="Per 4 Jam"
-            icon="medical-services"
-            color="#FFF3E0"
-            iconColor="#FFA000"
-            onPress={() => navigate(`/partograf/${partografId}/catatan/per4jam`)}
+          {/* C. 30 MENIT */}
+          <DashboardButton 
+            title="Obs. 30 Menit"
+            subtitle="DJJ, Nadi, His"
+            icon="heart-pulse"
+            color={THEME.menu30}
+            onPress={() => navigate(`/partograf/${partografId}/catatan/per30`, { state: { partografId, catatanPartografId } })}
+            disabled={!hasData}
           />
+
+          {/* D. 4 JAM (SEKARANG TIDAK TERKUNCI) */}
+          <DashboardButton 
+            title="Obs. 4 Jam"
+            subtitle="V.T, Tensi, Suhu"
+            icon="doctor"
+            color={THEME.menu4h}
+            onPress={() => navigate(`/partograf/${partografId}/catatan/per4jam`, { state: { partografId, catatanPartografId } })}
+            // Disabled dihapus agar selalu bisa diakses
+          />
+
         </View>
+
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#AB47BC" barStyle="light-content" />
+    <View style={styles.mainContainer}>
+      <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigate("/home")}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      {/* APP BAR */}
+      <View style={styles.appBar}>
+        <TouchableOpacity onPress={() => navigate("/home")} style={styles.backBtn}>
+           <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Catatan Perkembangan</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.appBarTitle}>Rekam Medis Digital</Text>
+        <TouchableOpacity>
+           <MaterialCommunityIcons name="dots-vertical" size={24} color={THEME.textMain} />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.mainContent}>{renderContent()}</View>
-    </SafeAreaView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {renderContent()}
+      </ScrollView>
+    </View>
   );
 };
 
-// ------------------ STYLE ------------------
+// ------------------ STYLES (CLINICAL DASHBOARD) ------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F7FA" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#AB47BC",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    elevation: 4
+  mainContainer: { flex: 1, backgroundColor: THEME.bg },
+
+  // APP BAR
+  appBar: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 16, paddingHorizontal: 20, backgroundColor: "#FFF",
+    borderBottomWidth: 1, borderBottomColor: "#E0E0E0", elevation: 2
   },
-  headerTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
-  mainContent: {
-    flex: 1,
-    padding: 20,
-    justifyContent: "center",
-    alignItems: "center"
+  appBarTitle: { 
+    fontSize: 16, fontWeight: "700", color: THEME.textMain, 
+    letterSpacing: 0.5, textTransform: 'uppercase' 
+  },
+  backBtn: { padding: 4 },
+
+  // LOADING
+  loadingView: { alignItems: 'center', marginTop: 60 },
+  loadingText: { marginTop: 16, color: THEME.textSec, fontWeight: "500" },
+
+  contentContainer: { padding: 20 },
+
+  // PATIENT CARD
+  patientCard: {
+    backgroundColor: "#FFF", borderRadius: 12, padding: 20, marginBottom: 24,
+    borderWidth: 1, borderColor: THEME.border,
+    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, elevation: 3
+  },
+  patientRow: { flexDirection: 'row', alignItems: 'center' },
+  avatarBox: {
+    width: 50, height: 50, borderRadius: 25, backgroundColor: THEME.textSec,
+    justifyContent: 'center', alignItems: 'center', marginRight: 16
+  },
+  patientLabel: { fontSize: 10, color: THEME.textSec, fontWeight: "bold", letterSpacing: 1 },
+  patientValue: { fontSize: 18, color: THEME.textMain, fontWeight: "bold", fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  
+  statusBadge: { 
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  statusText: { fontSize: 10, fontWeight: "bold" },
+
+  alertBox: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 16,
+    backgroundColor: "#FFEBEE", padding: 10, borderRadius: 8
+  },
+  alertText: { fontSize: 12, color: "#C62828" },
+
+  sectionHeader: {
+    fontSize: 12, fontWeight: "700", color: "#90A4AE", marginBottom: 12, marginLeft: 4, letterSpacing: 1
   },
 
-  contentWrapper: { width: "100%", alignItems: "center" },
-
-  statusBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#E0E0E0"
-  },
-  statusText: { fontSize: 14, fontWeight: "bold" },
-  statusTextSuccess: { color: "#388E3C" },
-  statusTextWarning: { color: "#FBC02D" },
-  infoDetail: { marginBottom: 30, fontSize: 13, color: "#888" },
-
+  // GRID SYSTEM
   gridContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    width: "100%",
-    maxWidth: 400
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between'
   },
 
-  loadingContainer: {
-    alignItems: "center",
-    padding: 50,
-    borderRadius: 10,
+  // DASHBOARD BUTTON
+  dashBtn: {
+    width: '48%', // 2 Kolom
     backgroundColor: "#FFF",
-    elevation: 3
-  },
-
-  card: {
-    width: "48%",
-    aspectRatio: 1.3,
     borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
+    padding: 16,
     marginBottom: 16,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4
+    borderWidth: 1,
+    borderColor: "#ECEFF1",
+    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.03, elevation: 2,
+    height: 160, // Tinggi tetap agar rapi
+    justifyContent: 'space-between'
   },
-  cardDisabled: {
-    borderColor: "#D32F2F",
-    borderWidth: 2,
-    backgroundColor: "#FAFAFA",
-    elevation: 1
-  },
+  dashBtnDisabled: { backgroundColor: "#FAFAFA", borderColor: "#F5F5F5" },
+
   iconCircle: {
-    width: 60,
-    height: 60,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-    elevation: 3
+    width: 56, height: 56, borderRadius: 28,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 12
   },
-  cardText: {
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "600",
-    textAlign: "center"
-  },
-  cardStatusText: {
-    position: "absolute",
-    bottom: 5,
-    fontSize: 10,
-    color: "#D32F2F",
-    fontWeight: "bold",
-    textAlign: "center",
-    paddingHorizontal: 5
+  btnContent: { flex: 1, justifyContent: 'flex-end' },
+  btnTitle: { fontSize: 15, fontWeight: "700", color: THEME.textMain, marginBottom: 4 },
+  btnSubtitle: { fontSize: 11, color: THEME.textSec },
+
+  lockIcon: {
+    position: 'absolute', top: 12, right: 12
   }
 });
 

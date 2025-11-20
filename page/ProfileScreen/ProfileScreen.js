@@ -8,11 +8,29 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView
+  ScrollView,
+  SafeAreaView,
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView // Added this import
 } from "react-native";
-import { Ionicons, FontAwesome } from "@expo/vector-icons";
+import { Ionicons, FontAwesome, MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigate } from "react-router-native";
+
+// ======================= MEDICAL THEME ==========================
+const THEME = {
+  bg: "#F4F6F8",       // Background Abu-abu Klinis
+  primary: "#448AFF",  // Biru Utama
+  accent: "#00897B",   // Teal
+  cardBg: "#FFFFFF",
+  textMain: "#263238", // Dark Blue Grey
+  textSec: "#78909C",  // Abu-abu Teks
+  border: "#ECEFF1",   // Border Halus
+  inputBg: "#FAFAFA",  // Background Input
+  danger: "#EF5350",   // Merah Error/Logout
+  success: "#66BB6A"   // Hijau Sukses
+};
 
 export default function ProfileScreen({ style }) {
   const navigate = useNavigate();
@@ -72,11 +90,11 @@ export default function ProfileScreen({ style }) {
   // 🔹 Update Password
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Error", "Harap isi semua field password.");
+      Alert.alert("Form Tidak Lengkap", "Harap isi semua kolom password.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "Password baru dan konfirmasi tidak cocok.");
+      Alert.alert("Validasi Gagal", "Password baru dan konfirmasi tidak cocok.");
       return;
     }
 
@@ -107,7 +125,7 @@ export default function ProfileScreen({ style }) {
         throw new Error(data.message || "Gagal mengubah password.");
       }
 
-      Alert.alert("Sukses", data.message || "Password berhasil diubah.");
+      Alert.alert("Sukses", "Password berhasil diperbarui.");
       setPasswordModalVisible(false);
       setCurrentPassword("");
       setNewPassword("");
@@ -116,7 +134,6 @@ export default function ProfileScreen({ style }) {
       setShowNewPassword(false);
       setShowConfirmPassword(false);
     } catch (error) {
-      console.error("Gagal ganti password:", error);
       Alert.alert("Gagal", error.message);
     } finally {
       setIsApiLoading(false);
@@ -127,14 +144,10 @@ export default function ProfileScreen({ style }) {
   const handleChangeUsername = async () => {
     const trimmedName = newUsername.trim();
     if (!trimmedName) {
-      Alert.alert("Error", "Username tidak boleh kosong.");
+      Alert.alert("Validasi Gagal", "Username tidak boleh kosong.");
       return;
     }
     if (trimmedName === username) {
-      Alert.alert(
-        "Info",
-        "Username sama dengan yang lama, tidak perlu diubah."
-      );
       setUsernameModalVisible(false);
       return;
     }
@@ -161,10 +174,9 @@ export default function ProfileScreen({ style }) {
 
       await AsyncStorage.setItem("userName", trimmedName);
       setUsername(trimmedName);
-      Alert.alert("Sukses", data.message || "Username berhasil diubah.");
+      Alert.alert("Sukses", "Username berhasil diperbarui.");
       setUsernameModalVisible(false);
     } catch (error) {
-      console.error("Gagal ganti username:", error);
       Alert.alert("Gagal", error.message);
     } finally {
       setIsApiLoading(false);
@@ -177,33 +189,37 @@ export default function ProfileScreen({ style }) {
     setValue,
     showPassword,
     setShowPassword,
+    label,
     placeholder
   ) => (
-    <View style={styles.inputWrapper}>
-      <TextInput
-        style={styles.input}
-        placeholder={placeholder}
-        secureTextEntry={!showPassword}
-        value={value}
-        onChangeText={setValue}
-        placeholderTextColor="#888"
-      />
-      <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-        <Ionicons
-          name={showPassword ? "eye" : "eye-off"}
-          size={20}
-          color="#777"
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={styles.input}
+          placeholder={placeholder}
+          secureTextEntry={!showPassword}
+          value={value}
+          onChangeText={setValue}
+          placeholderTextColor="#B0BEC5"
         />
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+          <Ionicons
+            name={showPassword ? "eye-off-outline" : "eye-outline"}
+            size={20}
+            color={THEME.textSec}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   // 🔹 Logout
   const handleLogout = async () => {
-    Alert.alert("Logout", "Apakah Anda yakin ingin keluar?", [
-      { text: "Tidak", style: "cancel" },
+    Alert.alert("Konfirmasi Logout", "Apakah Anda yakin ingin keluar dari sesi ini?", [
+      { text: "Batal", style: "cancel" },
       {
-        text: "Ya",
+        text: "Keluar",
         style: "destructive",
         onPress: async () => {
           try {
@@ -211,7 +227,7 @@ export default function ProfileScreen({ style }) {
             await AsyncStorage.removeItem("userName");
             navigate("/", { replace: true });
           } catch (error) {
-            Alert.alert("Error", "Terjadi kesalahan saat logout.");
+            Alert.alert("Error", "Gagal memproses logout.");
           }
         }
       }
@@ -219,224 +235,259 @@ export default function ProfileScreen({ style }) {
   };
 
   return (
-    <ScrollView style={[styles.container, style]}>
-      {/* Header */}
-      <View style={styles.profileHeader}>
-        <FontAwesome name="user-circle" size={80} color="#bdbdbd" />
-        {isPageLoading ? (
-          <ActivityIndicator color="#333" style={{ marginTop: 10 }} />
-        ) : (
-          <Text style={styles.username}>{username}</Text>
-        )}
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+      <ScrollView style={[styles.container, style]} contentContainerStyle={{ paddingBottom: 40 }}>
+        
+        {/* Header Profil */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarContainer}>
+            <FontAwesome5 name="user-nurse" size={40} color={THEME.primary} />
+          </View>
+          
+          <View style={styles.profileInfo}>
+            {isPageLoading ? (
+              <ActivityIndicator size="small" color={THEME.primary} />
+            ) : (
+              <>
+                <Text style={styles.profileName}>{username}</Text>
+                <Text style={styles.profileRole}>Bidan Profesional</Text>
+              </>
+            )}
+          </View>
+          
+          <TouchableOpacity style={styles.editBadge} onPress={() => setUsernameModalVisible(true)}>
+             <MaterialIcons name="edit" size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
 
-      {/* Menu */}
-      <View style={styles.menuContainer}>
-        <Text style={styles.menuTitle}>Akun</Text>
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => setUsernameModalVisible(true)}
-        >
-          <Ionicons name="person-outline" size={22} color="#448AFF" />
-          <Text style={styles.menuItemText}>Ubah Username</Text>
-          <Ionicons name="chevron-forward-outline" size={22} color="#bdbdbd" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => setPasswordModalVisible(true)}
-        >
-          <Ionicons name="lock-closed-outline" size={22} color="#448AFF" />
-          <Text style={styles.menuItemText}>Ubah Password</Text>
-          <Ionicons name="chevron-forward-outline" size={22} color="#bdbdbd" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.menuItem, { marginTop: 20 }]}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={22} color="#FF5252" />
-          <Text style={[styles.menuItemText, { color: "#FF5252" }]}>
-            Logout
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Modal Username */}
-      <Modal
-        visible={usernameModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setUsernameModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Ubah Username</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Username Baru"
-                value={newUsername}
-                onChangeText={setNewUsername}
-                editable={!isApiLoading}
-              />
+        {/* Menu Pengaturan */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>PENGATURAN AKUN</Text>
+          
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => setUsernameModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: "#E3F2FD" }]}>
+              <Ionicons name="person" size={20} color={THEME.primary} />
             </View>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleChangeUsername}
-              disabled={isApiLoading}
-            >
-              {isApiLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Simpan</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setUsernameModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Batal</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+            <Text style={styles.menuText}>Ubah Username</Text>
+            <MaterialIcons name="chevron-right" size={24} color={THEME.textSec} />
+          </TouchableOpacity>
 
-      {/* Modal Password */}
-      <Modal
-        visible={passwordModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPasswordModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Ubah Password</Text>
-            {renderPasswordInput(
-              currentPassword,
-              setCurrentPassword,
-              showCurrentPassword,
-              setShowCurrentPassword,
-              "Password Saat Ini"
-            )}
-            {renderPasswordInput(
-              newPassword,
-              setNewPassword,
-              showNewPassword,
-              setShowNewPassword,
-              "Password Baru"
-            )}
-            {renderPasswordInput(
-              confirmPassword,
-              setConfirmPassword,
-              showConfirmPassword,
-              setShowConfirmPassword,
-              "Konfirmasi Password Baru"
-            )}
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleChangePassword}
-              disabled={isApiLoading}
-            >
-              {isApiLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setPasswordModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Batal</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => setPasswordModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: "#E0F2F1" }]}>
+              <Ionicons name="lock-closed" size={20} color={THEME.accent} />
+            </View>
+            <Text style={styles.menuText}>Ganti Password</Text>
+            <MaterialIcons name="chevron-right" size={24} color={THEME.textSec} />
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* Menu Lainnya (Logout) */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>SESI</Text>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: "#FFEBEE" }]}>
+              <MaterialIcons name="logout" size={20} color={THEME.danger} />
+            </View>
+            <Text style={[styles.menuText, { color: THEME.danger }]}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* MODAL UBAH USERNAME */}
+        <Modal
+          visible={usernameModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setUsernameModalVisible(false)}
+        >
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Ubah Username</Text>
+                <TouchableOpacity onPress={() => setUsernameModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={THEME.textSec} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Username Baru</Text>
+                <TextInput
+                  style={styles.simpleInput}
+                  placeholder="Masukkan username baru"
+                  value={newUsername}
+                  onChangeText={setNewUsername}
+                  autoCapitalize="none"
+                  editable={!isApiLoading}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleChangeUsername}
+                disabled={isApiLoading}
+              >
+                {isApiLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>SIMPAN PERUBAHAN</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* MODAL UBAH PASSWORD */}
+        <Modal
+          visible={passwordModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPasswordModalVisible(false)}
+        >
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Ganti Password</Text>
+                <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={THEME.textSec} />
+                </TouchableOpacity>
+              </View>
+
+              {renderPasswordInput(
+                currentPassword,
+                setCurrentPassword,
+                showCurrentPassword,
+                setShowCurrentPassword,
+                "Password Saat Ini",
+                "Masukkan password lama"
+              )}
+              
+              {renderPasswordInput(
+                newPassword,
+                setNewPassword,
+                showNewPassword,
+                setShowNewPassword,
+                "Password Baru",
+                "Minimal 6 karakter"
+              )}
+
+              {renderPasswordInput(
+                confirmPassword,
+                setConfirmPassword,
+                showConfirmPassword,
+                setShowConfirmPassword,
+                "Konfirmasi Password",
+                "Ulangi password baru"
+              )}
+
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleChangePassword}
+                disabled={isApiLoading}
+              >
+                {isApiLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>UPDATE PASSWORD</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+// ======================= STYLES ==========================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F2F3F5" },
-  profileHeader: {
-    backgroundColor: "#fff",
-    paddingVertical: 40,
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5
+  safeArea: { flex: 1, backgroundColor: THEME.bg },
+  container: { flex: 1, padding: 20 },
+
+  // PROFILE HEADER CARD
+  profileCard: {
+    backgroundColor: "#FFF", borderRadius: 16, padding: 20,
+    flexDirection: "row", alignItems: "center", marginBottom: 24,
+    borderWidth: 1, borderColor: THEME.border,
+    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, elevation: 2
   },
-  username: { fontSize: 22, fontWeight: "bold", color: "#333", marginTop: 10 },
-  menuContainer: { marginTop: 20, marginHorizontal: 20 },
-  menuTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#999",
-    marginBottom: 10,
-    textTransform: "uppercase"
+  avatarContainer: {
+    width: 60, height: 60, borderRadius: 30, backgroundColor: "#E3F2FD",
+    justifyContent: "center", alignItems: "center", marginRight: 16
+  },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: 18, fontWeight: "bold", color: THEME.textMain, marginBottom: 4 },
+  profileRole: { fontSize: 14, color: THEME.textSec },
+  editBadge: {
+    backgroundColor: THEME.primary, width: 28, height: 28, borderRadius: 14,
+    justifyContent: "center", alignItems: "center", position: 'absolute', top: 16, right: 16
+  },
+
+  // MENU SECTIONS
+  sectionContainer: {
+    backgroundColor: "#FFF", borderRadius: 16, paddingVertical: 8, marginBottom: 20,
+    borderWidth: 1, borderColor: THEME.border, overflow: 'hidden'
+  },
+  sectionTitle: {
+    fontSize: 12, fontWeight: "700", color: THEME.textSec, marginLeft: 20, marginTop: 12, marginBottom: 8, letterSpacing: 1
   },
   menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 10,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3
+    flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 20,
+    backgroundColor: "#FFF"
   },
-  menuItemText: { flex: 1, marginLeft: 15, fontSize: 16, color: "#333" },
+  menuIconBox: {
+    width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center", marginRight: 16
+  },
+  menuText: { flex: 1, fontSize: 15, fontWeight: "600", color: THEME.textMain },
+  divider: { height: 1, backgroundColor: "#F5F5F5", marginLeft: 72 },
+
+  // MODAL STYLES
   modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20
+    flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20
   },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 20,
-    width: "100%",
-    alignItems: "center"
+  modalCard: {
+    backgroundColor: "#FFF", borderRadius: 16, padding: 24,
+    shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity: 0.2, elevation: 10
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 15
+  modalHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20
   },
+  modalTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
+
+  // INPUT STYLES
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 12, fontWeight: "600", color: THEME.textSec, marginBottom: 8 },
   inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    backgroundColor: "#F2F3F5",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    height: 45
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: THEME.inputBg, borderRadius: 10, borderWidth: 1, borderColor: THEME.border,
+    paddingHorizontal: 14
   },
-  input: { flex: 1, fontSize: 14, height: "100%" },
-  saveButton: {
-    backgroundColor: "#448AFF",
-    borderRadius: 25,
-    paddingVertical: 12,
-    alignItems: "center",
-    width: "100%",
-    marginTop: 10
+  input: { flex: 1, paddingVertical: 12, fontSize: 15, color: THEME.textMain },
+  simpleInput: {
+    backgroundColor: THEME.inputBg, borderRadius: 10, borderWidth: 1, borderColor: THEME.border,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: THEME.textMain
   },
-  saveButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  cancelButton: { marginTop: 10, padding: 10 },
-  cancelButtonText: { color: "#999", fontSize: 14 }
+  eyeIcon: { padding: 4 },
+
+  // BUTTON STYLES
+  primaryButton: {
+    backgroundColor: THEME.primary, borderRadius: 12, paddingVertical: 14,
+    alignItems: "center", marginTop: 10,
+    shadowColor: THEME.primary, shadowOffset: {width:0, height:4}, shadowOpacity: 0.2, elevation: 4
+  },
+  primaryButtonText: { color: "#FFF", fontSize: 14, fontWeight: "bold", letterSpacing: 0.5 },
 });

@@ -7,21 +7,38 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  StatusBar
+  StatusBar,
+  Animated,
+  Easing,
+  Platform
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import { useNavigate, useLocation } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// ======================= MEDICAL THEME ==========================
+const THEME = {
+  bg: "#F4F6F8",       // Abu-abu klinis
+  card: "#FFFFFF",     // Putih bersih
+  primary: "#0277BD",  // Medical Blue
+  accent: "#C2185B",   // Pink/Red
+  success: "#2E7D32",  // Hijau
+  textMain: "#263238", 
+  textSec: "#78909C",
+  border: "#CFD8DC",
+  
+  // Warna Khusus Stopwatch
+  ringActive: "#00E5FF", // Cyan terang
+  ringIdle: "#B0BEC5",   // Abu-abu diam
+  stopwatchBg: "#263238",// Layar gelap
+};
 
 // ---------------- UTIL ----------------
 const formatTime = (ms) => {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
-    2,
-    "0"
-  )}`;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
 // =======================================================
@@ -35,16 +52,19 @@ const MonitorKontraksi = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [time, setTime] = useState(0);
   const [startTime, setStartTime] = useState(null);
-  const [history, setHistory] = useState([]); // State untuk riwayat yang terlihat
+  const [history, setHistory] = useState([]); 
   const [isLoading, setIsLoading] = useState(false);
   const [userToken, setUserToken] = useState(null);
 
   const intervalRef = useRef(null);
+  
+  // ANIMATION REFS
+  const spinValue = useRef(new Animated.Value(0)).current; 
+  const pulseValue = useRef(new Animated.Value(1)).current;
 
-  // Kunci unik untuk menyimpan riwayat pasien ini
   const HISTORY_KEY = `kontraksi_history_${catatanPartografId}`;
 
-  // ================== LOAD HISTORY (BARU) ==================
+  // ================== LOAD HISTORY ==================
   useEffect(() => {
     const loadHistory = async () => {
       if (catatanPartografId) {
@@ -54,7 +74,7 @@ const MonitorKontraksi = () => {
             setHistory(JSON.parse(storedHistory));
           }
         } catch (e) {
-          console.error("Gagal memuat riwayat kontraksi:", e);
+          console.error("Gagal memuat riwayat:", e);
         }
       }
     };
@@ -79,28 +99,55 @@ const MonitorKontraksi = () => {
     loadToken();
   }, []);
 
-  // ================== STATUSBAR ==================
+  // ================== ANIMATION LOOP ==================
   useEffect(() => {
-    StatusBar.setTranslucent(false);
-    StatusBar.setBackgroundColor("#673AB7");
-    StatusBar.setBarStyle("light-content");
+    let spinAnim;
+    let pulseAnim;
 
-    return () => {
-      StatusBar.setTranslucent(false);
-    };
-  }, []);
-
-  // ================== STOPWATCH ==================
-  useEffect(() => {
     if (isRunning) {
+      // 1. Timer Interval
       intervalRef.current = setInterval(() => {
         setTime((prev) => prev + 1000);
       }, 1000);
+
+      // 2. Cincin Berputar
+      spinAnim = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      spinAnim.start();
+
+      // 3. Denyut Tombol
+      pulseAnim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseValue, { toValue: 1.1, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulseValue, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      );
+      pulseAnim.start();
+
     } else {
       clearInterval(intervalRef.current);
+      spinValue.setValue(0);
+      pulseValue.setValue(1);
     }
-    return () => clearInterval(intervalRef.current);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      if (spinAnim) spinAnim.stop();
+      if (pulseAnim) pulseAnim.stop();
+    };
   }, [isRunning]);
+
+  // Interpolasi Putaran
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
 
   // ================== HANDLER ==================
   const startStopHandler = () => {
@@ -129,13 +176,10 @@ const MonitorKontraksi = () => {
     await simpanKontraksi(kontraksiData);
   };
 
-  // ================== API HANDLER (MODIFIED SAVE) ==================
+  // ================== API HANDLER ==================
   const simpanKontraksi = async (kontraksi) => {
     if (!catatanPartografId || !userToken) {
-      return Alert.alert(
-        "Error",
-        "ID Catatan Partograf atau Token tidak ditemukan."
-      );
+      return Alert.alert("Error", "ID Catatan Partograf / Token hilang.");
     }
 
     setIsLoading(true);
@@ -160,28 +204,11 @@ const MonitorKontraksi = () => {
       let json = {};
 
       if (!res.ok) {
-        let errorMessage = `Gagal (${res.status})`;
-
-        try {
-          json = JSON.parse(text);
-          errorMessage = json.message || JSON.stringify(json);
-        } catch {
-          errorMessage = `Error Server (${res.status}). Respons bukan JSON.`;
-        }
-
-        return Alert.alert("Gagal", errorMessage);
+        try { json = JSON.parse(text); } catch {}
+        return Alert.alert("Gagal", json.message || `Error ${res.status}`);
       }
 
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        Alert.alert(
-          "Fatal Error",
-          "Server merespons OK tetapi data bukan JSON yang valid."
-        );
-        console.error("JSON Parse Error on Success:", text, e);
-        return;
-      }
+      try { json = JSON.parse(text); } catch {}
 
       const savedData = {
         ...kontraksi,
@@ -189,209 +216,237 @@ const MonitorKontraksi = () => {
         durasi: json.data?.durasi || kontraksi.durasi
       };
 
-      // 1. Perbarui state lokal
       setHistory((prev) => {
         const newHistory = [savedData, ...prev];
-        // 2. Simpan seluruh riwayat ke AsyncStorage
         AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
         return newHistory;
       });
 
-      Alert.alert("Berhasil", `Kontraksi dicatat (${savedData.durasi})`);
+      Alert.alert("Tersimpan", `Kontraksi dicatat (${savedData.durasi})`);
     } catch (err) {
-      Alert.alert("Error", "Tidak dapat terhubung ke server.");
-      console.error("Fetch error:", err);
+      Alert.alert("Error", "Koneksi gagal.");
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
   // =======================================================
-  //                                UI
+  //                            UI
   // =======================================================
   return (
-    <View style={styles.container}>
+    <View style={styles.mainContainer}>
+      <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
+      
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigate(-1)}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+      <View style={styles.appBar}>
+        <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
+          <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Monitor Kontraksi</Text>
+        <Text style={styles.appBarTitle}>Monitor Kontraksi</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Stopwatch Area */}
-      <View style={styles.stopwatchArea}>
-        {/* Waktu Durasi */}
-        <Text style={styles.stopwatchLabel}>Durasi Kontraksi Saat Ini</Text>
-        <Text style={styles.stopwatchTime}>{formatTime(time)}</Text>
-
-        {/* Tombol Start/Stop Lingkaran */}
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isRunning ? styles.stopButton : styles.startButton
-          ]}
-          onPress={startStopHandler}
-          disabled={isLoading || !userToken}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#FFF" size="large" />
-          ) : (
-            <Ionicons
-              name={isRunning ? "stop" : "play"}
-              size={40}
-              color="#FFF"
-            />
-          )}
-        </TouchableOpacity>
-
-        {/* Label Aksi Tombol */}
-        <Text style={styles.actionLabel}>
-          {isRunning ? "TAP UNTUK SIMPAN" : "MULAI KONTRAKSI"}
-        </Text>
-
-        {startTime && isRunning && (
-          <Text style={styles.startTimeText}>
-            Mulai: {startTime.toLocaleTimeString("id-ID")}
-          </Text>
-        )}
-      </View>
-
-      {/* History */}
-      <Text style={styles.historyTitle}>
-        Riwayat Kontraksi ({history.length})
-      </Text>
-
-      <ScrollView style={styles.historyContainer}>
-        {history.length === 0 ? (
-          <Text style={styles.emptyHistory}>Belum ada kontraksi dicatat.</Text>
-        ) : (
-          history.map((item) => (
-            <View key={item.id} style={styles.historyCard}>
-              <View>
-                <Text style={styles.historyDuration}>
-                  Durasi: {item.durasi} Detik
-                </Text>
-                <Text style={styles.historyDetail}>
-                  Mulai:{" "}
-                  {new Date(item.waktu_mulai).toLocaleTimeString("id-ID")}
-                </Text>
-                <Text style={styles.historyDetail}>
-                  Selesai:{" "}
-                  {new Date(item.waktu_selesai).toLocaleTimeString("id-ID")}
-                </Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        
+        {/* === MEDICAL SCANNER UI === */}
+        <View style={styles.medicalCard}>
+          {/* Card Header */}
+          <View style={styles.cardHeader}>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <MaterialCommunityIcons name="radar" size={20} color={THEME.primary} />
+              <Text style={styles.cardTitle}>SCANNER KONTRAKSI</Text>
             </View>
-          ))
-        )}
+            {isRunning && (
+              <View style={styles.recBadge}>
+                <View style={styles.recDot} />
+                <Text style={styles.recText}>REC</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Scanner Area */}
+          <View style={styles.scannerContainer}>
+            
+            {/* 1. Ring Background */}
+            <View style={styles.ringBackground}>
+              
+              {/* 2. Animated Ring */}
+              <Animated.View style={[
+                styles.rotatingRing, 
+                { transform: [{ rotate: spin }] },
+                { borderColor: isRunning ? THEME.ringActive : THEME.ringIdle }
+              ]}>
+                 <View style={[styles.ringKnob, { backgroundColor: isRunning ? THEME.ringActive : "transparent" }]} />
+              </Animated.View>
+
+              {/* 3. Inner Display */}
+              <View style={styles.innerDisplay}>
+                <Text style={styles.timerLabel}>DURATION</Text>
+                <Text style={styles.timerDigits}>{formatTime(time)}</Text>
+                <Text style={styles.timerUnit}>MM : SS</Text>
+              </View>
+
+            </View>
+
+            {/* 4. Floating Control Button */}
+            <TouchableOpacity
+              onPress={startStopHandler}
+              disabled={isLoading || !userToken}
+              activeOpacity={0.8}
+              style={styles.controlBtnWrapper}
+            >
+              <Animated.View style={[
+                styles.pulseButton,
+                { 
+                  backgroundColor: isRunning ? "#D32F2F" : THEME.primary,
+                  transform: [{ scale: pulseValue }]
+                }
+              ]}>
+                {isLoading ? (
+                  <ActivityIndicator color="#FFF" size="large" />
+                ) : (
+                  <FontAwesome5 name={isRunning ? "stop" : "play"} size={24} color="#FFF" />
+                )}
+              </Animated.View>
+              <Text style={styles.controlLabel}>
+                {isRunning ? "HENTIKAN REKAM" : "MULAI KONTRAKSI"}
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+        </View>
+
+        {/* === HISTORY TABLE === */}
+        <View style={styles.historySection}>
+          <Text style={styles.sectionHeader}>RIWAYAT ({history.length})</Text>
+          
+          <View style={styles.tableContainer}>
+            <View style={styles.tableHeader}>
+              <Text style={styles.th}>MULAI</Text>
+              <Text style={styles.th}>SELESAI</Text>
+              <Text style={styles.th}>DURASI</Text>
+              <Text style={styles.thRight}>STS</Text>
+            </View>
+
+            {history.length === 0 ? (
+              <Text style={styles.emptyText}>Belum ada data kontraksi</Text>
+            ) : (
+              history.map((item, i) => (
+                <View key={item.id} style={[styles.tr, i % 2 === 0 && styles.trEven]}>
+                  <Text style={styles.td}>
+                    {new Date(item.waktu_mulai).toLocaleTimeString("id-ID", {hour: '2-digit', minute:'2-digit'})}
+                  </Text>
+                  <Text style={styles.td}>
+                    {item.waktu_selesai ? new Date(item.waktu_selesai).toLocaleTimeString("id-ID", {hour: '2-digit', minute:'2-digit'}) : "-"}
+                  </Text>
+                  <Text style={[styles.td, {fontWeight: 'bold', color: THEME.textMain}]}>
+                    {item.durasi}
+                  </Text>
+                  <View style={styles.tdRight}>
+                    <Ionicons name="checkmark-circle" size={16} color={THEME.success} />
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
       </ScrollView>
     </View>
   );
 };
 
-// =======================================================
-//                             STYLES
-// =======================================================
+// ======================= STYLES (CLINICAL PRO) ==========================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f4f8" },
+  mainContainer: { flex: 1, backgroundColor: THEME.bg },
 
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: "#673AB7", // Ungu
-    alignItems: "center",
-    elevation: 4
+  // APP BAR
+  appBar: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 16, paddingHorizontal: 20, backgroundColor: "#FFF",
+    borderBottomWidth: 1, borderBottomColor: "#E0E0E0"
+  },
+  appBarTitle: { fontSize: 16, fontWeight: "700", color: THEME.textMain },
+  backBtn: { padding: 4 },
+
+  // MEDICAL CARD
+  medicalCard: {
+    backgroundColor: "#FFF", borderRadius: 12, padding: 20, marginBottom: 24,
+    borderWidth: 1, borderColor: THEME.border,
+    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, elevation: 2
+  },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20,
+    borderBottomWidth: 1, borderBottomColor: "#F5F5F5", paddingBottom: 12
+  },
+  cardTitle: { fontSize: 13, fontWeight: "700", color: THEME.textMain, marginLeft: 8, letterSpacing: 0.5 },
+
+  // SCANNER UI
+  scannerContainer: { alignItems: 'center', marginTop: 10, marginBottom: 10 },
+  
+  ringBackground: {
+    width: 240, height: 240, borderRadius: 120,
+    backgroundColor: "#ECEFF1",
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: "#CFD8DC", marginBottom: 30,
+    shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, elevation: 5
+  },
+  rotatingRing: {
+    position: 'absolute', width: 240, height: 240, borderRadius: 120,
+    borderWidth: 4, borderStyle: 'dashed', borderColor: THEME.ringIdle,
+    justifyContent: 'center', alignItems: 'center'
+  },
+  ringKnob: {
+    position: 'absolute', top: -6, width: 12, height: 12, borderRadius: 6,
+    shadowColor: THEME.ringActive, shadowOpacity: 0.5, shadowRadius: 5, elevation: 5
+  },
+  innerDisplay: {
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: THEME.stopwatchBg,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: "#FFF",
+    shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, elevation: 8
+  },
+  timerLabel: { color: "#90A4AE", fontSize: 10, letterSpacing: 2, marginBottom: 8 },
+  timerDigits: { 
+    fontSize: 48, fontWeight: "bold", color: "#FFF",
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 2 
+  },
+  timerUnit: { color: THEME.primary, fontSize: 10, marginTop: 8, fontWeight: "bold" },
+
+  // BUTTON
+  controlBtnWrapper: { alignItems: 'center', marginTop: -25 },
+  pulseButton: {
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: "#FFF",
+    shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, elevation: 6
+  },
+  controlLabel: { 
+    marginTop: 12, fontSize: 12, fontWeight: "bold", 
+    color: THEME.textSec, textTransform: 'uppercase', letterSpacing: 0.5 
   },
 
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "bold"
-  },
+  // REC BADGE
+  recBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFEBEE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D32F2F", marginRight: 6 },
+  recText: { fontSize: 10, fontWeight: "bold", color: "#D32F2F" },
 
-  stopwatchArea: {
-    backgroundColor: "#FFF",
-    padding: 30,
-    margin: 20,
-    borderRadius: 15,
-    elevation: 6,
-    alignItems: "center"
-  },
+  // HISTORY SECTION
+  historySection: { marginTop: 10 },
+  sectionHeader: { fontSize: 13, fontWeight: "700", color: THEME.textSec, marginBottom: 10, marginLeft: 4 },
 
-  stopwatchLabel: {
-    fontSize: 16,
-    color: "#888",
-    fontWeight: "500",
-    marginBottom: 5
-  },
-
-  stopwatchTime: {
-    fontSize: 70,
-    color: "#333",
-    marginBottom: 25,
-    fontWeight: "200",
-    fontVariant: ["tabular-nums"]
-  },
-
-  actionButton: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    marginBottom: 10
-  },
-
-  startButton: {
-    backgroundColor: "#4CAF50" // Hijau
-  },
-
-  stopButton: {
-    backgroundColor: "#D32F2F" // Merah
-  },
-
-  actionLabel: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333"
-  },
-
-  startTimeText: { marginTop: 10, color: "#777", fontSize: 13 },
-
-  historyTitle: {
-    marginLeft: 20,
-    marginBottom: 10,
-    color: "#333",
-    fontWeight: "bold"
-  },
-
-  historyContainer: { paddingHorizontal: 20 },
-
-  historyCard: {
-    backgroundColor: "#FFF",
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 10,
-    borderLeftWidth: 5,
-    borderLeftColor: "#4CAF50",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    elevation: 1
-  },
-
-  historyDuration: { fontSize: 16, fontWeight: "bold" },
-  historyDetail: { fontSize: 12, color: "#888" },
-  emptyHistory: { textAlign: "center", marginTop: 20, color: "#999" }
+  // TABLE
+  tableContainer: { borderWidth: 1, borderColor: "#EEE", borderRadius: 8, overflow: 'hidden', backgroundColor: "#FFF" },
+  tableHeader: { flexDirection: 'row', backgroundColor: "#F1F3F4", padding: 12, borderBottomWidth: 1, borderBottomColor: "#E0E0E0" },
+  th: { flex: 1, fontSize: 11, fontWeight: "bold", color: "#607D8B" },
+  thRight: { width: 40, fontSize: 11, fontWeight: "bold", color: "#607D8B", textAlign: 'center' },
+  tr: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: "#FAFAFA" },
+  trEven: { backgroundColor: "#FAFAFA" },
+  td: { flex: 1, fontSize: 13, color: THEME.textSec },
+  tdRight: { width: 40, alignItems: 'center' },
+  emptyText: { textAlign: 'center', padding: 20, color: "#B0BEC5", fontSize: 12, fontStyle: 'italic' }
 });
 
 export default MonitorKontraksi;

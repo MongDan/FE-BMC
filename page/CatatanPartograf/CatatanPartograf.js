@@ -7,47 +7,91 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-  StatusBar
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator
 } from "react-native";
 import { useParams, useNavigate } from "react-router-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  Ionicons,
+  MaterialIcons,
+  FontAwesome5,
+  MaterialCommunityIcons
+} from "@expo/vector-icons";
 
-// ... (Komponen FormInput, Picker, Card tetap sama)
+// ======================= MEDICAL THEME ==========================
+const THEME = {
+  bg: "#F4F6F8",
+  primary: "#0277BD",
+  accent: "#00897B",
+  textMain: "#263238",
+  textSec: "#78909C",
+  cardBg: "#FFFFFF",
+  border: "#ECEFF1",
+  inputBg: "#FAFAFA",
+  activeInput: "#E1F5FE",
+  placeholder: "#B0BEC5"
+};
 
-function FormInput({ label, name, value, onChange, placeholder }) {
+// ------------------ COMPONENT: FORM INPUT ------------------
+function FormInput({
+  label,
+  name,
+  value,
+  onChange,
+  placeholder,
+  keyboardType = "default",
+  suffix
+}) {
   return (
-    <View style={{ marginBottom: 14 }}>
+    <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        style={styles.inputField}
-        value={value}
-        placeholder={placeholder}
-        placeholderTextColor="#b2bec3"
-        onChangeText={(val) => onChange(name, val)}
-      />
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={styles.inputField}
+          value={value}
+          placeholder={placeholder}
+          placeholderTextColor={THEME.placeholder}
+          onChangeText={(val) => onChange(name, val)}
+          keyboardType={keyboardType}
+        />
+        {suffix && <Text style={styles.inputSuffix}>{suffix}</Text>}
+      </View>
     </View>
   );
 }
 
+// ------------------ COMPONENT: CHIP PICKER ------------------
 function Picker({ label, value, onChangeValue, options }) {
   return (
-    <View style={{ marginBottom: 14 }}>
+    <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
-
-      <View style={styles.pickerWrap}>
+      <View style={styles.chipContainer}>
         {options.map((item, i) => {
           const val = item.value || item;
           const text = item.label || item;
+          const isActive = value === val;
 
           return (
             <TouchableOpacity
               key={i}
-              style={[styles.optionBox, value === val && styles.optionSelected]}
+              style={[styles.chip, isActive && styles.chipActive]}
               onPress={() => onChangeValue(val)}
+              activeOpacity={0.8}
             >
+              {isActive && (
+                <Ionicons
+                  name="checkmark"
+                  size={14}
+                  color="#FFF"
+                  style={{ marginRight: 4 }}
+                />
+              )}
               <Text
-                style={[styles.optionText, value === val && { color: "#fff" }]}
+                style={[styles.chipText, isActive && styles.chipTextActive]}
               >
                 {text}
               </Text>
@@ -59,13 +103,17 @@ function Picker({ label, value, onChangeValue, options }) {
   );
 }
 
-function Card({ title, iconColor, children }) {
+// ------------------ COMPONENT: MEDICAL CARD ------------------
+function Card({ title, icon, iconColor, children }) {
   return (
     <View style={styles.card}>
-      <View style={[styles.cardHeader, { borderLeftColor: iconColor }]}>
-        <Text style={styles.cardTitle}>{title}</Text>
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconBox, { backgroundColor: iconColor + "15" }]}>
+          <MaterialCommunityIcons name={icon} size={20} color={iconColor} />
+        </View>
+        <Text style={[styles.cardTitle, { color: iconColor }]}>{title}</Text>
       </View>
-      {children}
+      <View style={styles.cardBody}>{children}</View>
     </View>
   );
 }
@@ -73,17 +121,12 @@ function Card({ title, iconColor, children }) {
 export default function CatatanPartograf() {
   const { id } = useParams(); // ID Partograf Utama
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
 
-  // MENGATUR STATUS BAR
+  // STATUS BAR
   useEffect(() => {
-    StatusBar.setTranslucent(false);
-    StatusBar.setBackgroundColor("#1877f2");
-    StatusBar.setBarStyle("light-content");
-
-    return () => {
-      StatusBar.setTranslucent(false);
-      StatusBar.setBackgroundColor("transparent");
-    };
+    StatusBar.setBarStyle("dark-content");
+    StatusBar.setBackgroundColor("#FFF");
   }, []);
 
   const emptyForm = {
@@ -104,7 +147,6 @@ export default function CatatanPartograf() {
   };
 
   const [form, setForm] = useState(emptyForm);
-  const resetForm = () => setForm({ ...emptyForm });
 
   useEffect(() => {
     setForm((prevForm) => ({ ...prevForm, partograf_id: id }));
@@ -115,13 +157,19 @@ export default function CatatanPartograf() {
   };
 
   const handleSubmit = async () => {
-    // Diasumsikan token ada di AsyncStorage (seperti di MonitorKontraksi.js)
     const userToken = await AsyncStorage.getItem("userToken");
-    if (!userToken) {
-      Alert.alert("Akses Ditolak", "Token tidak ditemukan.");
-      return;
+    if (!userToken)
+      return Alert.alert("Akses Ditolak", "Token tidak ditemukan.");
+
+    // Simple Validation
+    if (!form.djj && !form.pembukaan_servik) {
+      return Alert.alert(
+        "Data Kosong",
+        "Mohon isi setidaknya satu data vital."
+      );
     }
 
+    setIsLoading(true);
     try {
       const res = await fetch(
         `https://restful-api-bmc-production.up.railway.app/api/partograf/${id}/catatan`,
@@ -129,7 +177,7 @@ export default function CatatanPartograf() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}` // Asumsi API ini juga butuh token
+            Authorization: `Bearer ${userToken}`
           },
           body: JSON.stringify(form)
         }
@@ -138,242 +186,357 @@ export default function CatatanPartograf() {
       const json = await res.json();
 
       if (!res.ok) {
-        return Alert.alert("Gagal", json.message || "Terjadi kesalahan");
+        throw new Error(json.message || "Terjadi kesalahan");
       }
 
-      // *** LOGIKA BARU: Menyimpan ID Catatan Partograf yang baru dibuat ***
-      const newCatatanId = json.data?.id; // Asumsi API merespons dengan {data: {id: ...}}
+      // Simpan ID Catatan Baru
+      const newCatatanId = json.data?.id;
       if (newCatatanId) {
-        // Menyimpan ID Catatan Partograf ke AsyncStorage dengan kunci unik berdasarkan Partograf ID utama
-        await AsyncStorage.setItem(`catatanId_${id}`, newCatatanId);
+        await AsyncStorage.setItem(`catatanId_${id}`, newCatatanId.toString());
       }
 
       Alert.alert(
         "Berhasil",
-        json.message || `Catatan berhasil disimpan. ID Baru: ${newCatatanId}`
+        "Catatan Partograf berhasil disimpan.",
+        [{ text: "OK", onPress: () => navigate(-1) }] // Kembali setelah simpan
       );
-      resetForm();
     } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Tidak dapat terhubung ke server");
+      Alert.alert("Gagal", error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigate("/home")}>
-          <Text style={styles.backHeader}>←</Text>
+        <TouchableOpacity
+          onPress={() =>
+            navigate("/home-catatan", { state: { partografId: id } })
+          }
+          style={styles.backBtn}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.textMain} />
         </TouchableOpacity>
-
         <View>
-          <Text style={styles.headerTitle}>Catatan Partograf</Text>
-          <Text style={styles.headerSubtitle}>ID Partograf: {id}</Text>
+          <Text style={styles.headerTitle}>Formulir Partograf</Text>
+          <Text style={styles.headerSubtitle}>ID Pasien: {id}</Text>
         </View>
       </View>
 
-      <ScrollView style={styles.contentArea}>
-        {/* CARD 1: Vital Signs */}
-        <Card title="Vital Signs" iconColor="#e84118">
-          <FormInput
-            label="DJJ (Denyut Jantung Janin)"
-            name="djj"
-            value={form.djj}
-            placeholder="Contoh: 140 (satuan kali/menit)"
-            onChange={handleChange}
-          />
-          <FormInput
-            label="Pembukaan Serviks"
-            name="pembukaan_servik"
-            value={form.pembukaan_servik}
-            placeholder="0-10 (satuan cm)"
-            onChange={handleChange}
-          />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.contentArea}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* CARD 1: Vital Signs */}
+          <Card
+            title="Tanda Vital & Fisik"
+            icon="heart-pulse"
+            iconColor="#E53935"
+          >
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <FormInput
+                  label="DJJ"
+                  name="djj"
+                  value={form.djj}
+                  placeholder="140"
+                  suffix="bpm"
+                  keyboardType="numeric"
+                  onChange={handleChange}
+                />
+              </View>
+              <View style={styles.col}>
+                <FormInput
+                  label="Nadi Ibu"
+                  name="nadi_ibu"
+                  value={form.nadi_ibu}
+                  placeholder="80"
+                  suffix="bpm"
+                  keyboardType="numeric"
+                  onChange={handleChange}
+                />
+              </View>
+            </View>
 
-          <FormInput
-            label="Penurunan Kepala (Hodge)"
-            name="penurunan_kepala"
-            value={form.penurunan_kepala}
-            placeholder="0-5 (0=atas, 5=bawah/lahir)"
-            onChange={handleChange}
-          />
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <FormInput
+                  label="Pembukaan"
+                  name="pembukaan_servik"
+                  value={form.pembukaan_servik}
+                  placeholder="0-10"
+                  suffix="cm"
+                  keyboardType="numeric"
+                  onChange={handleChange}
+                />
+              </View>
+              <View style={styles.col}>
+                <FormInput
+                  label="Penurunan"
+                  name="penurunan_kepala"
+                  value={form.penurunan_kepala}
+                  placeholder="0-5"
+                  suffix="Hodge"
+                  keyboardType="numeric"
+                  onChange={handleChange}
+                />
+              </View>
+            </View>
 
-          <FormInput
-            label="Nadi Ibu"
-            name="nadi_ibu"
-            value={form.nadi_ibu}
-            placeholder="Contoh: 80 (satuan kali/menit)"
-            onChange={handleChange}
-          />
+            <FormInput
+              label="Suhu Tubuh Ibu"
+              name="suhu_ibu"
+              value={form.suhu_ibu}
+              placeholder="36.5"
+              suffix="°C"
+              keyboardType="numeric"
+              onChange={handleChange}
+            />
+          </Card>
 
-          <FormInput
-            label="Suhu Ibu"
-            name="suhu_ibu"
-            value={form.suhu_ibu}
-            placeholder="Contoh: 36.5 (satuan °C)"
-            onChange={handleChange}
-          />
-        </Card>
+          {/* CARD 2: Pemantauan Tambahan */}
+          <Card
+            title="Laboratorium & Urin"
+            icon="test-tube"
+            iconColor="#1E88E5"
+          >
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <FormInput
+                  label="Tensi Sistole"
+                  name="sistolik"
+                  value={form.sistolik}
+                  placeholder="120"
+                  suffix="mmHg"
+                  keyboardType="numeric"
+                  onChange={handleChange}
+                />
+              </View>
+              <View style={styles.col}>
+                <FormInput
+                  label="Tensi Diastole"
+                  name="diastolik"
+                  value={form.diastolik}
+                  placeholder="80"
+                  suffix="mmHg"
+                  keyboardType="numeric"
+                  onChange={handleChange}
+                />
+              </View>
+            </View>
 
-        {/* CARD 2: Pemantauan Tambahan */}
-        <Card title="Pemantauan Tambahan" iconColor="#487eb0">
-          <FormInput
-            label="Sistolik (Tekanan Darah)"
-            name="sistolik"
-            value={form.sistolik}
-            placeholder="Contoh: 120 (satuan mmHg)"
-            onChange={handleChange}
-          />
+            <Picker
+              label="Aseton Urin"
+              value={form.aseton}
+              onChangeValue={(v) => handleChange("aseton", v)}
+              options={["Negatif (-)", "Positif (+)"]}
+            />
 
-          <FormInput
-            label="Diastolik (Tekanan Darah)"
-            name="diastolik"
-            value={form.diastolik}
-            placeholder="Contoh: 80 (satuan mmHg)"
-            onChange={handleChange}
-          />
+            <Picker
+              label="Protein Urin"
+              value={form.protein}
+              onChangeValue={(v) => handleChange("protein", v)}
+              options={["-", "+", "++", "+++"]}
+            />
 
-          <Picker
-            label="Aseton"
-            value={form.aseton}
-            onChangeValue={(v) => handleChange("aseton", v)}
-            options={["-", "+"]}
-          />
+            <FormInput
+              label="Volume Urine"
+              name="volume_urine"
+              value={form.volume_urine}
+              placeholder="200"
+              suffix="ml"
+              keyboardType="numeric"
+              onChange={handleChange}
+            />
+          </Card>
 
-          <Picker
-            label="Protein Urine"
-            value={form.protein}
-            onChangeValue={(v) => handleChange("protein", v)}
-            options={["-", "+", "++", "+++"]}
-          />
+          {/* CARD 3: Obat & Cairan */}
+          <Card title="Terapi & Kondisi Janin" icon="pill" iconColor="#00897B">
+            <FormInput
+              label="Obat-obatan / Cairan Infus"
+              name="obat_cairan"
+              value={form.obat_cairan}
+              placeholder="Cth: Oksitosin 10 IU, RL 500ml"
+              onChange={handleChange}
+            />
 
-          <FormInput
-            label="Volume Urine (ml)"
-            name="volume_urine"
-            value={form.volume_urine}
-            placeholder="Contoh: 250"
-            onChange={handleChange}
-          />
-        </Card>
+            <Picker
+              label="Air Ketuban"
+              value={form.air_ketuban}
+              onChangeValue={(v) => handleChange("air_ketuban", v)}
+              options={[
+                { label: "Jernih (J)", value: "j" },
+                { label: "Hijau (H)", value: "h" },
+                { label: "Mekonium (M)", value: "m" },
+                { label: "Darah (D)", value: "d" },
+                { label: "Kering (K)", value: "k" }
+              ]}
+            />
 
-        {/* CARD 3: Obat & Cairan */}
-        <Card title="Obat & Cairan" iconColor="#0097e6">
-          <FormInput
-            label="Obat / Cairan"
-            name="obat_cairan"
-            value={form.obat_cairan}
-            placeholder="Contoh: Oksitosin 10 IU atau RL 500ml"
-            onChange={handleChange}
-          />
+            <Picker
+              label="Molase (Penyusupan Kepala)"
+              value={form.molase}
+              onChangeValue={(v) => handleChange("molase", v)}
+              options={["0", "1", "2", "3"]}
+            />
+          </Card>
 
-          <Picker
-            label="Air Ketuban"
-            value={form.air_ketuban}
-            onChangeValue={(v) => handleChange("air_ketuban", v)}
-            options={[
-              { label: "Jernih", value: "j" },
-              { label: "Hijau", value: "h" },
-              { label: "Mekonium", value: "m" }
-            ]}
-          />
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleSubmit}
+            disabled={isLoading}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <>
+                <MaterialIcons
+                  name="save"
+                  size={20}
+                  color="#FFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.submitText}>SIMPAN DATA</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-          <Picker
-            label="Molase (Penyusupan Tulang Kepala)"
-            value={form.molase}
-            onChangeValue={(v) => handleChange("molase", v)}
-            options={["0", "1", "2", "3"]}
-          />
-        </Card>
-
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitText}>Simpan Catatan Partograf</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 50 }} />
-      </ScrollView>
+          <View style={{ height: 50 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#eef2f7" },
-  contentArea: { flex: 1, padding: 15 },
+  container: { flex: 1, backgroundColor: THEME.bg },
+
+  // HEADER
   header: {
-    backgroundColor: "#1877f2",
-    paddingVertical: 24,
-    paddingHorizontal: 20,
     flexDirection: "row",
-    gap: 15,
     alignItems: "center",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "#FFF",
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.border
   },
-  backHeader: { color: "#fff", fontSize: 24, fontWeight: "bold" },
-  headerTitle: { color: "#fff", fontSize: 20, fontWeight: "bold" },
-  headerSubtitle: { color: "#dfe6e9", fontSize: 13 },
+  backBtn: { marginRight: 16, padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
+  headerSubtitle: { fontSize: 12, color: THEME.textSec },
+
+  contentArea: { padding: 16 },
+
+  // CARD STYLE
   card: {
-    backgroundColor: "#fff",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 25,
-    elevation: 4
+    backgroundColor: THEME.cardBg,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    elevation: 2
   },
   cardHeader: {
-    borderLeftWidth: 6,
-    paddingLeft: 10,
-    marginBottom: 12
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#FAFAFA"
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#2f3640"
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12
   },
+  cardTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
+  cardBody: { padding: 16 },
+
+  // FORM INPUTS
+  inputContainer: { marginBottom: 16 },
   inputLabel: {
-    color: "#2f3640",
-    marginBottom: 6,
-    fontSize: 14
+    fontSize: 12,
+    fontWeight: "600",
+    color: THEME.textSec,
+    marginBottom: 6
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: THEME.inputBg,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 8,
+    paddingHorizontal: 12
   },
   inputField: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#dcdde1",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontSize: 15
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: THEME.textMain
   },
-  pickerWrap: {
+  inputSuffix: {
+    fontSize: 12,
+    color: THEME.textSec,
+    fontWeight: "600",
+    marginLeft: 8
+  },
+
+  // GRID SYSTEM
+  row: { flexDirection: "row", justifyContent: "space-between" },
+  col: { width: "48%" },
+
+  // CHIP PICKER
+  chipContainer: { flexDirection: "row", flexWrap: "wrap" },
+  chip: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10
-  },
-  optionBox: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#dcdde1",
-    backgroundColor: "#f1f2f6"
-  },
-  optionSelected: {
-    backgroundColor: "#1877f2",
-    borderColor: "#1877f2"
-  },
-  optionText: {
-    color: "#2f3640",
-    fontSize: 14
-  },
-  submitButton: {
-    backgroundColor: "#1877f2",
-    paddingVertical: 16,
-    borderRadius: 14,
     alignItems: "center",
-    marginTop: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8
+  },
+  chipActive: {
+    backgroundColor: THEME.primary,
+    borderColor: THEME.primary
+  },
+  chipText: { fontSize: 12, color: THEME.textSec, fontWeight: "600" },
+  chipTextActive: { color: "#FFF" },
+
+  // SUBMIT BUTTON
+  submitButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: THEME.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginTop: 10,
+    shadowColor: THEME.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     elevation: 4
   },
   submitText: {
-    color: "#fff",
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
+    letterSpacing: 1
   }
 });

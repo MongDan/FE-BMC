@@ -9,10 +9,26 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Dimensions
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
+
+// ======================= MEDICAL THEME COLORS ==========================
+const THEME = {
+  bg: "#F4F6F8",
+  primary: "#448AFF",
+  textMain: "#263238",
+  textSec: "#78909C",
+  border: "#ECEFF1",
+  inputBg: "#F8F9FA",
+  activeInput: "#E3F2FD",
+  success: "#66BB6A",
+  error: "#EF5350"
+};
+
+const { height } = Dimensions.get("window");
 
 export default function TambahPasienForm({ onClose, onSuccess, token }) {
   const [nama, setNama] = useState("");
@@ -38,10 +54,14 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
   };
 
   const handleConfirmPicker = (date) => {
-    const formatted = date.toISOString().slice(0, 19).replace("T", " ");
-    if (currentPicker === "pemeriksaan") setTglJamPemeriksaan(formatted);
-    if (currentPicker === "ketuban") setJamKetubanPecah(formatted);
-    if (currentPicker === "mules") setTglJamMules(formatted);
+    // Format: YYYY-MM-DD HH:mm:ss
+    // Perhatikan timezone offset jika perlu, di sini pakai lokal sederhana
+    const offset = date.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(date - offset).toISOString().slice(0, 19).replace("T", " ");
+
+    if (currentPicker === "pemeriksaan") setTglJamPemeriksaan(localISOTime);
+    if (currentPicker === "ketuban") setJamKetubanPecah(localISOTime);
+    if (currentPicker === "mules") setTglJamMules(localISOTime);
     setShowPicker(false);
   };
 
@@ -60,7 +80,7 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       !tglJamMules ||
       (ketubanPecah === true && !jamKetubanPecah)
     ) {
-      Alert.alert("Error", "Harap isi semua field.");
+      Alert.alert("Data Belum Lengkap", "Mohon lengkapi semua kolom formulir.");
       return;
     }
 
@@ -77,8 +97,7 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
         abortus
       });
 
-      console.log("Payload Register:", registerBody);
-
+      // 1. Register Pasien
       const regResponse = await fetch(
         `https://restful-api-bmc-production.up.railway.app/api/bidan/register-pasien`,
         {
@@ -93,30 +112,20 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       );
 
       const regData = await regResponse.json();
-      console.log("Response Register:", JSON.stringify(regData, null, 2));
-
 
       if (!regResponse.ok) {
         if (regResponse.status === 422) {
           const errorKeys = Object.keys(regData);
           if (errorKeys.length > 0) {
-            const firstKey = errorKeys[0]; 
-            const firstMessage = regData[firstKey][0]; 
-            throw new Error(firstMessage);
+            throw new Error(regData[errorKeys[0]][0]);
           }
         }
-
         throw new Error(regData.message || "Gagal mendaftarkan pasien.");
       }
 
       const pasienId = regData.pasien ? regData.pasien.no_reg : regData.no_reg;
 
-      if (!pasienId) {
-        throw new Error(
-          "Sukses register, tapi ID Pasien tidak ditemukan di respon server."
-        );
-      }
-
+      // 2. Mulai Persalinan
       const laborBody = JSON.stringify({
         tanggal_jam_rawat: tglJamPemeriksaan,
         ketuban_pecah: ketubanPecah,
@@ -140,19 +149,15 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       const laborData = await laborResponse.json();
 
       if (!laborResponse.ok) {
-        throw new Error(
-          "Data diri tersimpan, tapi data persalinan gagal: " +
-            (laborData.message || "Error")
-        );
+        throw new Error("Register sukses, tapi gagal mulai persalinan: " + (laborData.message || "Error"));
       }
 
-      // SUKSES
       setIsLoading(false);
-      Alert.alert("Sukses", "Data berhasil disimpan.");
+      Alert.alert("Berhasil", "Pasien baru telah didaftarkan.");
       onSuccess();
     } catch (error) {
       setIsLoading(false);
-      Alert.alert("Gagal", error.message);
+      Alert.alert("Terjadi Kesalahan", error.message);
     }
   };
 
@@ -161,170 +166,208 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.modalOverlay}
     >
-      <View style={styles.formContainer}>
-        <View style={styles.formHeader}>
-          <Text style={styles.formTitle}>Tambah Pasien Baru</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close-circle" size={30} color="#e0e0e0" />
+      <View style={styles.formCard}>
+        
+        {/* Header Form */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Registrasi Pasien</Text>
+            <Text style={styles.headerSubtitle}>Lengkapi data rekam medis baru</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <Ionicons name="close" size={24} color={THEME.textSec} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView>
-          <Text style={styles.label}>Nama Lengkap</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Masukkan nama lengkap pasien"
-            value={nama}
-            onChangeText={setNama}
-          />
+        <ScrollView 
+          style={styles.scrollArea} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          
+          {/* Section: Identitas */}
+          <Text style={styles.sectionLabel}>IDENTITAS PASIEN</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Nama Lengkap</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nama Pasien"
+              placeholderTextColor="#B0BEC5"
+              value={nama}
+              onChangeText={setNama}
+            />
+          </View>
 
-          <Text style={styles.label}>Umur</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Masukkan umur (angka)"
-            value={umur}
-            onChangeText={setUmur}
-            keyboardType="numeric"
-          />
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 0.4, marginRight: 10 }]}>
+              <Text style={styles.label}>Umur</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Thn"
+                placeholderTextColor="#B0BEC5"
+                value={umur}
+                onChangeText={setUmur}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>No. Reg (Opsional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Otomatis jika kosong"
+                placeholderTextColor="#B0BEC5"
+                value={noReg}
+                onChangeText={(text) => setNoReg(text.replace(/[^0-9-]/g, ""))}
+                keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "phone-pad"}
+              />
+            </View>
+          </View>
 
-          <Text style={styles.label}>No. Registrasi (Opsional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contoh: 122-2374"
-            value={noReg}
-            maxLength={25}
-            keyboardType={
-              Platform.OS === "ios" ? "numbers-and-punctuation" : "phone-pad"
-            }
-            onChangeText={(text) => {
-              const filtered = text.replace(/[^0-9-]/g, "");
-              setNoReg(filtered);
-            }}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Alamat Lengkap</Text>
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+              placeholder="Jalan, No. Rumah, RT/RW"
+              placeholderTextColor="#B0BEC5"
+              value={alamat}
+              onChangeText={setAlamat}
+              multiline
+            />
+          </View>
 
-          <Text style={styles.label}>Alamat</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Masukkan alamat lengkap"
-            value={alamat}
-            onChangeText={setAlamat}
-            multiline
-          />
+          {/* Section: Riwayat Obstetri */}
+          <Text style={styles.sectionLabel}>RIWAYAT OBSTETRI (G-P-A)</Text>
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={styles.label}>Gravida</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                value={gravida}
+                onChangeText={setGravida}
+                keyboardType="numeric"
+                textAlign="center"
+              />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={styles.label}>Paritas</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                value={paritas}
+                onChangeText={setParitas}
+                keyboardType="numeric"
+                textAlign="center"
+              />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Abortus</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                value={abortus}
+                onChangeText={setAbortus}
+                keyboardType="numeric"
+                textAlign="center"
+              />
+            </View>
+          </View>
 
-          <Text style={styles.label}>Gravida</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contoh: 1"
-            value={gravida}
-            onChangeText={setGravida}
-            keyboardType="numeric"
-          />
+          {/* Section: Data Klinis Masuk */}
+          <Text style={styles.sectionLabel}>DATA KLINIS MASUK</Text>
 
-          <Text style={styles.label}>Paritas</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contoh: 0"
-            value={paritas}
-            onChangeText={setParitas}
-            keyboardType="numeric"
-          />
-
-          <Text style={styles.label}>Abortus</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contoh: 0"
-            value={abortus}
-            onChangeText={setAbortus}
-            keyboardType="numeric"
-          />
-
-          <Text style={styles.label}>Tanggal & Jam Pemeriksaan</Text>
-          <TouchableOpacity
-            style={styles.input}
+          {/* Date Picker Field */}
+          <TouchableOpacity 
+            style={styles.datePickerBtn} 
             onPress={() => handleShowPicker("pemeriksaan")}
           >
-            <Text>{tglJamPemeriksaan || "Pilih tanggal & jam"}</Text>
+            <View>
+              <Text style={styles.label}>Waktu Pemeriksaan</Text>
+              <Text style={[styles.dateText, !tglJamPemeriksaan && { color: "#B0BEC5" }]}>
+                {tglJamPemeriksaan || "Pilih Tanggal & Jam"}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="calendar-clock" size={24} color={THEME.primary} />
           </TouchableOpacity>
 
-          <Text style={styles.label}>Apakah Ketuban Pecah?</Text>
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={[
-                styles.buttonOption,
-                ketubanPecah === true && styles.buttonOptionSelected
-              ]}
-              onPress={() => setKetubanPecah(true)}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  ketubanPecah === true && styles.buttonTextSelected
-                ]}
-              >
-                Ya
+          <TouchableOpacity 
+            style={styles.datePickerBtn} 
+            onPress={() => handleShowPicker("mules")}
+          >
+            <View>
+              <Text style={styles.label}>Mulai Mules (His)</Text>
+              <Text style={[styles.dateText, !tglJamMules && { color: "#B0BEC5" }]}>
+                {tglJamMules || "Pilih Tanggal & Jam"}
               </Text>
-            </TouchableOpacity>
+            </View>
+            <MaterialCommunityIcons name="timer-sand" size={24} color={THEME.primary} />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.buttonOption,
-                ketubanPecah === false && styles.buttonOptionSelected
-              ]}
-              onPress={() => {
-                setKetubanPecah(false);
-                setJamKetubanPecah("");
-              }}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  ketubanPecah === false && styles.buttonTextSelected
-                ]}
+          {/* Ketuban Option */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Status Ketuban</Text>
+            <Text style={styles.subLabel}>Apakah ketuban sudah pecah?</Text>
+            
+            <View style={styles.radioGroup}>
+              <TouchableOpacity
+                style={[styles.radioBtn, ketubanPecah === true && styles.radioBtnActive]}
+                onPress={() => setKetubanPecah(true)}
               >
-                Tidak
-              </Text>
-            </TouchableOpacity>
+                <Text style={[styles.radioText, ketubanPecah === true && styles.radioTextActive]}>Ya</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.radioBtn, ketubanPecah === false && styles.radioBtnActive]}
+                onPress={() => {
+                  setKetubanPecah(false);
+                  setJamKetubanPecah("");
+                }}
+              >
+                <Text style={[styles.radioText, ketubanPecah === false && styles.radioTextActive]}>Tidak</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {ketubanPecah === true && (
-            <>
-              <Text style={styles.label}>Tanggal & Jam Ketuban Pecah</Text>
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() => handleShowPicker("ketuban")}
-              >
-                <Text>{jamKetubanPecah || "Pilih tanggal & jam"}</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity 
+              style={[styles.datePickerBtn, { borderColor: "#E65100", backgroundColor: "#FFF3E0" }]} 
+              onPress={() => handleShowPicker("ketuban")}
+            >
+              <View>
+                <Text style={[styles.label, { color: "#E65100" }]}>Waktu Ketuban Pecah</Text>
+                <Text style={[styles.dateText, !jamKetubanPecah && { color: "#FFCC80" }]}>
+                  {jamKetubanPecah || "Pilih Waktu Kejadian"}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="water-alert" size={24} color="#E65100" />
+            </TouchableOpacity>
           )}
 
-          <Text style={styles.label}>Tanggal & Jam Mulai Mules</Text>
-          <TouchableOpacity
-            style={styles.input}
-            onPress={() => handleShowPicker("mules")}
-          >
-            <Text>{tglJamMules || "Pilih tanggal & jam"}</Text>
-          </TouchableOpacity>
+          <View style={{ height: 20 }} />
 
           <TouchableOpacity
-            style={styles.submitButton}
+            style={styles.submitBtn}
             onPress={handleSubmit}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.submitButtonText}>Daftarkan Pasien</Text>
+              <Text style={styles.submitBtnText}>SIMPAN DATA PASIEN</Text>
             )}
           </TouchableOpacity>
+
         </ScrollView>
 
+        {/* Date Time Picker Modal */}
         <DateTimePickerModal
           isVisible={showPicker}
           mode="datetime"
           onConfirm={handleConfirmPicker}
           onCancel={handleCancelPicker}
           is24Hour={true}
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
         />
       </View>
     </KeyboardAvoidingView>
@@ -334,83 +377,71 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end"
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
   },
-  formContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+  formCard: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: height * 0.85, // 85% layar
     padding: 20,
-    maxHeight: "85%"
+    shadowColor: "#000", shadowOffset: {width:0, height:-2}, shadowOpacity: 0.1, elevation: 10
   },
-  formHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    paddingBottom: 10
+  
+  // Header
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: THEME.border
   },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333"
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
+  headerSubtitle: { fontSize: 12, color: THEME.textSec, marginTop: 2 },
+  closeBtn: { padding: 5 },
+
+  scrollArea: { flex: 1 },
+
+  // Labels & Inputs
+  sectionLabel: {
+    fontSize: 12, fontWeight: "700", color: THEME.primary,
+    marginTop: 10, marginBottom: 15, letterSpacing: 1
   },
-  label: {
-    fontSize: 14,
-    color: "#555",
-    marginBottom: 8,
-    marginTop: 10
-  },
+  inputGroup: { marginBottom: 16 },
+  label: { fontSize: 12, color: THEME.textSec, fontWeight: "600", marginBottom: 6 },
+  subLabel: { fontSize: 11, color: "#B0BEC5", marginBottom: 8 },
+  
   input: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    paddingHorizontal: 15,
-    minHeight: 45,
-    justifyContent: "center"
+    backgroundColor: THEME.inputBg, borderWidth: 1, borderColor: THEME.border,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: THEME.textMain
   },
-  submitButton: {
-    backgroundColor: "#448AFF",
-    borderRadius: 25,
-    paddingVertical: 12,
-    alignItems: "center",
-    marginTop: 25,
-    marginBottom: 20
+  row: { flexDirection: 'row' },
+
+  // Custom Date Picker Button
+  datePickerBtn: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: "#FFF", borderWidth: 1, borderColor: THEME.border,
+    borderRadius: 8, padding: 12, marginBottom: 16
   },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold"
+  dateText: { fontSize: 14, fontWeight: "bold", color: THEME.textMain, marginTop: 2 },
+
+  // Radio Buttons
+  radioGroup: { flexDirection: 'row', gap: 10 },
+  radioBtn: {
+    flex: 1, paddingVertical: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: THEME.border, backgroundColor: THEME.inputBg,
+    alignItems: 'center'
   },
-  buttonGroup: {
-    flexDirection: "row",
-    marginTop: 5,
-    marginBottom: 10
+  radioBtnActive: {
+    backgroundColor: THEME.primary, borderColor: THEME.primary
   },
-  buttonOption: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: "#F8F9FA",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    marginHorizontal: 5
+  radioText: { fontSize: 14, color: THEME.textSec, fontWeight: "600" },
+  radioTextActive: { color: "#FFF" },
+
+  // Submit Button
+  submitBtn: {
+    backgroundColor: THEME.primary, borderRadius: 12, paddingVertical: 16,
+    alignItems: 'center', marginTop: 10, marginBottom: 30,
+    shadowColor: THEME.primary, shadowOffset: {width:0, height:4}, shadowOpacity: 0.2, elevation: 4
   },
-  buttonOptionSelected: {
-    backgroundColor: "#448AFF",
-    borderColor: "#448AFF"
-  },
-  buttonText: {
-    fontSize: 14,
-    color: "#555",
-    fontWeight: "bold"
-  },
-  buttonTextSelected: {
-    color: "#fff"
-  }
+  submitBtnText: { color: "#FFF", fontSize: 14, fontWeight: "bold", letterSpacing: 0.5 }
 });
