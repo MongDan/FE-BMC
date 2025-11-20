@@ -8,105 +8,127 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import TambahPasienForm from "./TambahPasienForm";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProfileScreen from "../ProfileScreen/ProfileScreen";
+import { useNavigate } from "react-router-native";
 
-// --- Fungsi helper ---
 const formatNoReg = (noReg) => {
   if (!noReg) return "";
-  const tahun = new Date().getFullYear();
-  const nomor = noReg.toString().replace(".00", "");
-  return `${tahun}-${nomor}`;
+  return noReg.toString().replace(".00", "");
 };
 
 const formatDatetime = (datetime) => {
   if (!datetime) return "-";
   const date = new Date(datetime);
   return `${date.getDate()} ${date.toLocaleString("id-ID", {
-    month: "short"
+    month: "short",
   })} ${date.getFullYear()}, ${date.getHours()}:${date
     .getMinutes()
     .toString()
     .padStart(2, "0")}`;
 };
 
-// --- PasienCard Component ---
-const PasienCard = ({ pasien }) => {
-  const status = pasien.status || "non-aktif";
+const PasienCard = ({ pasien, onPress }) => {
+  const status = pasien.persalinan?.status || "tidak diketahui";
+
   const getStatusStyle = () => {
-    switch (status.toLowerCase()) {
+    switch (status) {
       case "aktif":
         return {
           borderColor: "#29b6f6",
           badgeColor: "#29b6f6",
-          badgeText: "Aktif"
+          badgeText: "Aktif",
         };
+
+      case "tidak_aktif":
+        return {
+          borderColor: "#bdbdbd",
+          badgeColor: "#bdbdbd",
+          badgeText: "Tidak Aktif",
+        };
+
       case "selesai":
         return {
-          borderColor: "#448AFF",
-          badgeColor: "#448AFF",
-          badgeText: "Selesai"
+          borderColor: "#4CAF50",
+          badgeColor: "#4CAF50",
+          badgeText: "Selesai",
         };
+
+      case "rujukan":
+        return {
+          borderColor: "#FBC02D",
+          badgeColor: "#FBC02D",
+          badgeText: "Rujukan",
+        };
+
       default:
         return {
           borderColor: "#e0e0e0",
           badgeColor: "#bdbdbd",
-          badgeText: "Non Aktif"
+          badgeText: "Tidak Diketahui",
         };
     }
   };
+
   const { borderColor, badgeColor, badgeText } = getStatusStyle();
 
   return (
-    <View style={[styles.card, { borderColor }]}>
-      <FontAwesome name="user-circle" size={50} color="#555" />
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardNama}>{pasien.nama}</Text>
-        <Text style={styles.cardDetail}>Umur: {pasien.umur} tahun</Text>
-        <Text style={styles.cardDetail}>
-          No. Register: {formatNoReg(pasien.no_reg)}
-        </Text>
-        <Text style={styles.cardDetail}>Alamat: {pasien.alamat}</Text>
-        {pasien.jam_ketuban_pecah && (
-          <View style={styles.cardDateRow}>
-            <Ionicons
-              name="calendar"
-              size={16}
-              color="#777"
-              style={{ marginRight: 6 }}
-            />
-            <Text style={styles.cardDetail}>
-              Jam Ketuban Pecah: {formatDatetime(pasien.jam_ketuban_pecah)}
-            </Text>
-          </View>
-        )}
-        {pasien.tgl_jam_mules && (
-          <View style={styles.cardDateRow}>
-            <Ionicons
-              name="calendar"
-              size={16}
-              color="#777"
-              style={{ marginRight: 6 }}
-            />
-            <Text style={styles.cardDetail}>
-              Tgl & Jam Mulai Mules: {formatDatetime(pasien.tgl_jam_mules)}
-            </Text>
-          </View>
-        )}
+    <TouchableOpacity onPress={onPress}>
+      <View style={[styles.card, { borderColor }]}>
+        <FontAwesome name="user-circle" size={50} color="#555" />
+
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardNama}>{pasien.nama}</Text>
+          <Text style={styles.cardDetail}>Umur: {pasien.umur} tahun</Text>
+          <Text style={styles.cardDetail}>
+            No. Register: {formatNoReg(pasien.no_reg)}
+          </Text>
+          <Text style={styles.cardDetail}>Alamat: {pasien.alamat}</Text>
+
+          {pasien.jam_ketuban_pecah && (
+            <View style={styles.cardDateRow}>
+              <Ionicons
+                name="calendar"
+                size={16}
+                color="#777"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.cardDetail}>
+                Jam Ketuban Pecah: {formatDatetime(pasien.jam_ketuban_pecah)}
+              </Text>
+            </View>
+          )}
+
+          {pasien.tgl_jam_mules && (
+            <View style={styles.cardDateRow}>
+              <Ionicons
+                name="calendar"
+                size={16}
+                color="#777"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.cardDetail}>
+                Tgl & Jam Mulai Mules: {formatDatetime(pasien.tgl_jam_mules)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+          <Text style={styles.badgeText}>{badgeText}</Text>
+        </View>
       </View>
-      <View style={[styles.badge, { backgroundColor: badgeColor }]}>
-        <Text style={styles.badgeText}>{badgeText}</Text>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
-// --- HomeScreen Component ---
 export default function HomeScreen() {
+  const navigate = useNavigate();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [userToken, setUserToken] = useState(null);
   const [pasienList, setPasienList] = useState([]);
@@ -120,38 +142,44 @@ export default function HomeScreen() {
 
   const fetchPasien = async (token) => {
     if (!token) return;
+
     setIsLoading(true);
     try {
-      const response = await fetch(`http://10.0.2.2:8000/api/bidan/pasien`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`
+      const res = await fetch(
+        "https://restful-api-bmc-production.up.railway.app/api/bidan/pasien",
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-      const data = await response.json();
+      );
+      const data = await res.json();
       setPasienList(data.daftar_pasien || []);
-    } catch (error) {
-      console.log("❌ ERROR FETCH:", error);
+    } catch (err) {
+      console.log("❌ ERROR FETCH:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    const loadTokenAndFetch = async () => {
+    const load = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
         if (token) {
           setUserToken(token);
-          await fetchPasien(token);
-        } else setIsLoading(false);
-      } catch (err) {
-        console.log("❌ ERROR LOAD TOKEN:", err);
+          fetchPasien(token);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (e) {
+        console.log("❌ ERROR LOAD:", e);
         setIsLoading(false);
       }
     };
-    loadTokenAndFetch();
+    load();
   }, []);
 
   const handleFormSuccess = () => {
@@ -168,10 +196,20 @@ export default function HomeScreen() {
           style={{ marginTop: 50 }}
         />
       );
+
     if (filteredPasienList.length === 0)
       return <Text style={styles.emptyText}>Tidak ada pasien ditemukan.</Text>;
+
     return filteredPasienList.map((pasien, index) => (
-      <PasienCard key={pasien.no_reg || `pasien-${index}`} pasien={pasien} />
+      <PasienCard
+        key={pasien.no_reg || `pasien-${index}`}
+        pasien={pasien}
+        onPress={() =>
+          navigate("/home-catatan", {
+            state: { partografId: pasien.partograf_id },
+          })
+        }
+      />
     ));
   };
 
@@ -209,6 +247,7 @@ export default function HomeScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
+
           <ScrollView style={styles.contentArea}>
             {renderHomeContent()}
           </ScrollView>
@@ -295,14 +334,14 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0"
+    borderBottomColor: "#f0f0f0",
   },
   headerLogo: { flexDirection: "row", alignItems: "center" },
   logoStetoskop: {
     width: 40,
     height: 40,
     resizeMode: "contain",
-    marginRight: 8
+    marginRight: 8,
   },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
   searchContainer: {
@@ -315,7 +354,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     elevation: 2,
     borderWidth: 1,
-    borderColor: "#eee"
+    borderColor: "#eee",
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, height: 40 },
@@ -324,7 +363,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 50,
     fontSize: 16,
-    color: "#999"
+    color: "#999",
   },
   card: {
     flexDirection: "row",
@@ -334,7 +373,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     borderWidth: 2,
-    elevation: 2
+    elevation: 2,
   },
   cardInfo: { flex: 1, marginLeft: 15 },
   cardNama: {
@@ -343,7 +382,7 @@ const styles = StyleSheet.create({
     color: "#333",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-    paddingBottom: 4
+    paddingBottom: 4,
   },
   cardDetail: { fontSize: 14, color: "#555", marginTop: 4 },
   cardDateRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
@@ -353,7 +392,7 @@ const styles = StyleSheet.create({
     right: 15,
     borderRadius: 12,
     paddingVertical: 4,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   badgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "bold" },
   bottomNav: {
@@ -364,7 +403,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     elevation: 10,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0"
+    borderTopColor: "#f0f0f0",
   },
   navItem: { alignItems: "center", flex: 1 },
   navText: { fontSize: 12, color: "#999" },
@@ -377,7 +416,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     bottom: 25,
-    elevation: 5
+    elevation: 5,
   },
   chatButton: {
     position: "absolute",
@@ -389,6 +428,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#448AFF",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5
-  }
+    elevation: 5,
+  },
 });

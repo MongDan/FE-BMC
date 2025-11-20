@@ -11,9 +11,8 @@ export default function SplashScreen() {
         style={styles.headerBar}
       />
 
-      {/* Body */}
       <View style={styles.bodyContent}>
-        {/* Logo + Teks */}
+
         <View style={styles.logoContainer}>
           <Image
             source={require("../../assets/Logo.png")}

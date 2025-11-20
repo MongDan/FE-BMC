@@ -45,7 +45,7 @@ export default function ProfileScreen({ style }) {
 
       if (!token) throw new Error("Token tidak ditemukan");
 
-      const res = await fetch("http://10.0.2.2:8000/api/profile", {
+      const res = await fetch("https://restful-api-bmc-production.up.railway.app/api/profile", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -89,7 +89,7 @@ export default function ProfileScreen({ style }) {
       });
 
       const response = await fetch(
-        "http://10.0.2.2:8000/api/profile/ubah-password",
+        "https://restful-api-bmc-production.up.railway.app/api/profile/ubah-password",
         {
           method: "PUT",
           headers: {
@@ -143,7 +143,7 @@ export default function ProfileScreen({ style }) {
     try {
       const body = JSON.stringify({ username: trimmedName });
 
-      const response = await fetch("http://10.0.2.2:8000/api/profile", {
+      const response = await fetch("https://restful-api-bmc-production.up.railway.app/api/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

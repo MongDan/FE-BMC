@@ -60,28 +60,27 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       !tglJamMules ||
       (ketubanPecah === true && !jamKetubanPecah)
     ) {
-      Alert.alert("Error", "Harap isi semua field (kecuali No. Reg).");
+      Alert.alert("Error", "Harap isi semua field.");
       return;
     }
 
     setIsLoading(true);
+
     try {
-      const body = JSON.stringify({
+      const registerBody = JSON.stringify({
         nama,
         umur,
         no_reg: noReg ? noReg : null,
         alamat,
         gravida,
         paritas,
-        abortus,
-        tgl_jam_pemeriksaan: tglJamPemeriksaan,
-        ketuban_pecah: ketubanPecah,
-        jam_ketuban_pecah: ketubanPecah ? jamKetubanPecah : null,
-        tgl_jam_mules: tglJamMules
+        abortus
       });
 
-      const response = await fetch(
-        `http://10.0.2.2:8000/api/bidan/register-pasien`,
+      console.log("Payload Register:", registerBody);
+
+      const regResponse = await fetch(
+        `https://restful-api-bmc-production.up.railway.app/api/bidan/register-pasien`,
         {
           method: "POST",
           headers: {
@@ -89,25 +88,71 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
             Accept: "application/json",
             Authorization: `Bearer ${token}`
           },
-          body
+          body: registerBody
         }
       );
 
-      if (!response.ok) {
-        const data = await response.json();
-        if (response.status === 422 && data.errors) {
-          const firstError = Object.values(data.errors)[0][0];
-          throw new Error(firstError || "Data tidak valid.");
+      const regData = await regResponse.json();
+      console.log("Response Register:", JSON.stringify(regData, null, 2));
+
+
+      if (!regResponse.ok) {
+        if (regResponse.status === 422) {
+          const errorKeys = Object.keys(regData);
+          if (errorKeys.length > 0) {
+            const firstKey = errorKeys[0]; 
+            const firstMessage = regData[firstKey][0]; 
+            throw new Error(firstMessage);
+          }
         }
-        throw new Error(data.message || "Gagal mendaftarkan pasien.");
+
+        throw new Error(regData.message || "Gagal mendaftarkan pasien.");
       }
 
+      const pasienId = regData.pasien ? regData.pasien.no_reg : regData.no_reg;
+
+      if (!pasienId) {
+        throw new Error(
+          "Sukses register, tapi ID Pasien tidak ditemukan di respon server."
+        );
+      }
+
+      const laborBody = JSON.stringify({
+        tanggal_jam_rawat: tglJamPemeriksaan,
+        ketuban_pecah: ketubanPecah,
+        tanggal_jam_ketuban_pecah: ketubanPecah ? jamKetubanPecah : null,
+        tanggal_jam_mules: tglJamMules
+      });
+
+      const laborResponse = await fetch(
+        `https://restful-api-bmc-production.up.railway.app/api/bidan/pasien/${pasienId}/mulai-persalinan`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: laborBody
+        }
+      );
+
+      const laborData = await laborResponse.json();
+
+      if (!laborResponse.ok) {
+        throw new Error(
+          "Data diri tersimpan, tapi data persalinan gagal: " +
+            (laborData.message || "Error")
+        );
+      }
+
+      // SUKSES
       setIsLoading(false);
-      Alert.alert("Sukses", "Pasien baru berhasil didaftarkan.");
+      Alert.alert("Sukses", "Data berhasil disimpan.");
       onSuccess();
     } catch (error) {
       setIsLoading(false);
-      Alert.alert("Registrasi Gagal", error.message);
+      Alert.alert("Gagal", error.message);
     }
   };
 
@@ -145,10 +190,16 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
           <Text style={styles.label}>No. Registrasi (Opsional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: 301"
+            placeholder="Contoh: 122-2374"
             value={noReg}
-            onChangeText={setNoReg}
-            keyboardType="numeric"
+            maxLength={25}
+            keyboardType={
+              Platform.OS === "ios" ? "numbers-and-punctuation" : "phone-pad"
+            }
+            onChangeText={(text) => {
+              const filtered = text.replace(/[^0-9-]/g, "");
+              setNoReg(filtered);
+            }}
           />
 
           <Text style={styles.label}>Alamat</Text>
