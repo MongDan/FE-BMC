@@ -12,25 +12,30 @@ import {
   Easing,
   Platform
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from "@expo/vector-icons";
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  FontAwesome5,
+  MaterialIcons
+} from "@expo/vector-icons";
 import { useNavigate, useLocation } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ======================= MEDICAL THEME ==========================
 const THEME = {
-  bg: "#F4F6F8",       // Abu-abu klinis
-  card: "#FFFFFF",     // Putih bersih
-  primary: "#0277BD",  // Medical Blue
-  accent: "#C2185B",   // Pink/Red
-  success: "#2E7D32",  // Hijau
-  textMain: "#263238", 
+  bg: "#F4F6F8", // Abu-abu klinis
+  card: "#FFFFFF", // Putih bersih
+  primary: "#0277BD", // Medical Blue
+  accent: "#C2185B", // Pink/Red
+  success: "#2E7D32", // Hijau
+  textMain: "#263238",
   textSec: "#78909C",
   border: "#CFD8DC",
-  
+
   // Warna Khusus Stopwatch
   ringActive: "#00E5FF", // Cyan terang
-  ringIdle: "#B0BEC5",   // Abu-abu diam
-  stopwatchBg: "#263238",// Layar gelap
+  ringIdle: "#B0BEC5", // Abu-abu diam
+  stopwatchBg: "#263238" // Layar gelap
 };
 
 // ---------------- UTIL ----------------
@@ -38,7 +43,10 @@ const formatTime = (ms) => {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+    2,
+    "0"
+  )}`;
 };
 
 // =======================================================
@@ -52,14 +60,14 @@ const MonitorKontraksi = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [time, setTime] = useState(0);
   const [startTime, setStartTime] = useState(null);
-  const [history, setHistory] = useState([]); 
+  const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [userToken, setUserToken] = useState(null);
 
   const intervalRef = useRef(null);
-  
+
   // ANIMATION REFS
-  const spinValue = useRef(new Animated.Value(0)).current; 
+  const spinValue = useRef(new Animated.Value(0)).current;
   const pulseValue = useRef(new Animated.Value(1)).current;
 
   const HISTORY_KEY = `kontraksi_history_${catatanPartografId}`;
@@ -116,7 +124,7 @@ const MonitorKontraksi = () => {
           toValue: 1,
           duration: 3000,
           easing: Easing.linear,
-          useNativeDriver: true,
+          useNativeDriver: true
         })
       );
       spinAnim.start();
@@ -124,12 +132,19 @@ const MonitorKontraksi = () => {
       // 3. Denyut Tombol
       pulseAnim = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseValue, { toValue: 1.1, duration: 500, useNativeDriver: true }),
-          Animated.timing(pulseValue, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulseValue, {
+            toValue: 1.1,
+            duration: 500,
+            useNativeDriver: true
+          }),
+          Animated.timing(pulseValue, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true
+          })
         ])
       );
       pulseAnim.start();
-
     } else {
       clearInterval(intervalRef.current);
       spinValue.setValue(0);
@@ -146,7 +161,7 @@ const MonitorKontraksi = () => {
   // Interpolasi Putaran
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
+    outputRange: ["0deg", "360deg"]
   });
 
   // ================== HANDLER ==================
@@ -204,11 +219,15 @@ const MonitorKontraksi = () => {
       let json = {};
 
       if (!res.ok) {
-        try { json = JSON.parse(text); } catch {}
+        try {
+          json = JSON.parse(text);
+        } catch {}
         return Alert.alert("Gagal", json.message || `Error ${res.status}`);
       }
 
-      try { json = JSON.parse(text); } catch {}
+      try {
+        json = JSON.parse(text);
+      } catch {}
 
       const savedData = {
         ...kontraksi,
@@ -237,7 +256,7 @@ const MonitorKontraksi = () => {
   return (
     <View style={styles.mainContainer}>
       <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
-      
+
       {/* Header */}
       <View style={styles.appBar}>
         <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
@@ -248,13 +267,16 @@ const MonitorKontraksi = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        
         {/* === MEDICAL SCANNER UI === */}
         <View style={styles.medicalCard}>
           {/* Card Header */}
           <View style={styles.cardHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <MaterialCommunityIcons name="radar" size={20} color={THEME.primary} />
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <MaterialCommunityIcons
+                name="radar"
+                size={20}
+                color={THEME.primary}
+              />
               <Text style={styles.cardTitle}>SCANNER KONTRAKSI</Text>
             </View>
             {isRunning && (
@@ -267,17 +289,26 @@ const MonitorKontraksi = () => {
 
           {/* Scanner Area */}
           <View style={styles.scannerContainer}>
-            
             {/* 1. Ring Background */}
             <View style={styles.ringBackground}>
-              
               {/* 2. Animated Ring */}
-              <Animated.View style={[
-                styles.rotatingRing, 
-                { transform: [{ rotate: spin }] },
-                { borderColor: isRunning ? THEME.ringActive : THEME.ringIdle }
-              ]}>
-                 <View style={[styles.ringKnob, { backgroundColor: isRunning ? THEME.ringActive : "transparent" }]} />
+              <Animated.View
+                style={[
+                  styles.rotatingRing,
+                  { transform: [{ rotate: spin }] },
+                  { borderColor: isRunning ? THEME.ringActive : THEME.ringIdle }
+                ]}
+              >
+                <View
+                  style={[
+                    styles.ringKnob,
+                    {
+                      backgroundColor: isRunning
+                        ? THEME.ringActive
+                        : "transparent"
+                    }
+                  ]}
+                />
               </Animated.View>
 
               {/* 3. Inner Display */}
@@ -286,7 +317,6 @@ const MonitorKontraksi = () => {
                 <Text style={styles.timerDigits}>{formatTime(time)}</Text>
                 <Text style={styles.timerUnit}>MM : SS</Text>
               </View>
-
             </View>
 
             {/* 4. Floating Control Button */}
@@ -296,31 +326,36 @@ const MonitorKontraksi = () => {
               activeOpacity={0.8}
               style={styles.controlBtnWrapper}
             >
-              <Animated.View style={[
-                styles.pulseButton,
-                { 
-                  backgroundColor: isRunning ? "#D32F2F" : THEME.primary,
-                  transform: [{ scale: pulseValue }]
-                }
-              ]}>
+              <Animated.View
+                style={[
+                  styles.pulseButton,
+                  {
+                    backgroundColor: isRunning ? "#D32F2F" : THEME.primary,
+                    transform: [{ scale: pulseValue }]
+                  }
+                ]}
+              >
                 {isLoading ? (
                   <ActivityIndicator color="#FFF" size="large" />
                 ) : (
-                  <FontAwesome5 name={isRunning ? "stop" : "play"} size={24} color="#FFF" />
+                  <FontAwesome5
+                    name={isRunning ? "stop" : "play"}
+                    size={24}
+                    color="#FFF"
+                  />
                 )}
               </Animated.View>
               <Text style={styles.controlLabel}>
                 {isRunning ? "HENTIKAN REKAM" : "MULAI KONTRAKSI"}
               </Text>
             </TouchableOpacity>
-
           </View>
         </View>
 
         {/* === HISTORY TABLE === */}
         <View style={styles.historySection}>
           <Text style={styles.sectionHeader}>RIWAYAT ({history.length})</Text>
-          
+
           <View style={styles.tableContainer}>
             <View style={styles.tableHeader}>
               <Text style={styles.th}>MULAI</Text>
@@ -333,25 +368,44 @@ const MonitorKontraksi = () => {
               <Text style={styles.emptyText}>Belum ada data kontraksi</Text>
             ) : (
               history.map((item, i) => (
-                <View key={item.id} style={[styles.tr, i % 2 === 0 && styles.trEven]}>
+                <View
+                  key={item.id}
+                  style={[styles.tr, i % 2 === 0 && styles.trEven]}
+                >
                   <Text style={styles.td}>
-                    {new Date(item.waktu_mulai).toLocaleTimeString("id-ID", {hour: '2-digit', minute:'2-digit'})}
+                    {new Date(item.waktu_mulai).toLocaleTimeString("id-ID", {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
                   </Text>
                   <Text style={styles.td}>
-                    {item.waktu_selesai ? new Date(item.waktu_selesai).toLocaleTimeString("id-ID", {hour: '2-digit', minute:'2-digit'}) : "-"}
+                    {item.waktu_selesai
+                      ? new Date(item.waktu_selesai).toLocaleTimeString(
+                          "id-ID",
+                          { hour: "2-digit", minute: "2-digit" }
+                        )
+                      : "-"}
                   </Text>
-                  <Text style={[styles.td, {fontWeight: 'bold', color: THEME.textMain}]}>
+                  <Text
+                    style={[
+                      styles.td,
+                      { fontWeight: "bold", color: THEME.textMain }
+                    ]}
+                  >
                     {item.durasi}
                   </Text>
                   <View style={styles.tdRight}>
-                    <Ionicons name="checkmark-circle" size={16} color={THEME.success} />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={THEME.success}
+                    />
                   </View>
                 </View>
               ))
             )}
           </View>
         </View>
-
       </ScrollView>
     </View>
   );
@@ -363,90 +417,214 @@ const styles = StyleSheet.create({
 
   // APP BAR
   appBar: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingVertical: 16, paddingHorizontal: 20, backgroundColor: "#FFF",
-    borderBottomWidth: 1, borderBottomColor: "#E0E0E0"
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "#FFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0"
   },
   appBarTitle: { fontSize: 16, fontWeight: "700", color: THEME.textMain },
   backBtn: { padding: 4 },
 
   // MEDICAL CARD
   medicalCard: {
-    backgroundColor: "#FFF", borderRadius: 12, padding: 20, marginBottom: 24,
-    borderWidth: 1, borderColor: THEME.border,
-    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, elevation: 2
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    elevation: 2
   },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: "#F5F5F5", paddingBottom: 12
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+    paddingBottom: 12
   },
-  cardTitle: { fontSize: 13, fontWeight: "700", color: THEME.textMain, marginLeft: 8, letterSpacing: 0.5 },
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: THEME.textMain,
+    marginLeft: 8,
+    letterSpacing: 0.5
+  },
 
   // SCANNER UI
-  scannerContainer: { alignItems: 'center', marginTop: 10, marginBottom: 10 },
-  
+  scannerContainer: { alignItems: "center", marginTop: 10, marginBottom: 10 },
+
   ringBackground: {
-    width: 240, height: 240, borderRadius: 120,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
     backgroundColor: "#ECEFF1",
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: "#CFD8DC", marginBottom: 30,
-    shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, elevation: 5
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#CFD8DC",
+    marginBottom: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    elevation: 5
   },
   rotatingRing: {
-    position: 'absolute', width: 240, height: 240, borderRadius: 120,
-    borderWidth: 4, borderStyle: 'dashed', borderColor: THEME.ringIdle,
-    justifyContent: 'center', alignItems: 'center'
+    position: "absolute",
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 4,
+    borderStyle: "dashed",
+    borderColor: THEME.ringIdle,
+    justifyContent: "center",
+    alignItems: "center"
   },
   ringKnob: {
-    position: 'absolute', top: -6, width: 12, height: 12, borderRadius: 6,
-    shadowColor: THEME.ringActive, shadowOpacity: 0.5, shadowRadius: 5, elevation: 5
+    position: "absolute",
+    top: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    shadowColor: THEME.ringActive,
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5
   },
   innerDisplay: {
-    width: 200, height: 200, borderRadius: 100,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     backgroundColor: THEME.stopwatchBg,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 4, borderColor: "#FFF",
-    shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, elevation: 8
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 4,
+    borderColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    elevation: 8
   },
-  timerLabel: { color: "#90A4AE", fontSize: 10, letterSpacing: 2, marginBottom: 8 },
-  timerDigits: { 
-    fontSize: 48, fontWeight: "bold", color: "#FFF",
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 2 
+  timerLabel: {
+    color: "#90A4AE",
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: 8
   },
-  timerUnit: { color: THEME.primary, fontSize: 10, marginTop: 8, fontWeight: "bold" },
+  timerDigits: {
+    fontSize: 48,
+    fontWeight: "bold",
+    color: "#FFF",
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    letterSpacing: 2
+  },
+  timerUnit: {
+    color: THEME.primary,
+    fontSize: 10,
+    marginTop: 8,
+    fontWeight: "bold"
+  },
 
   // BUTTON
-  controlBtnWrapper: { alignItems: 'center', marginTop: -25 },
+  controlBtnWrapper: { alignItems: "center", marginTop: -25 },
   pulseButton: {
-    width: 80, height: 80, borderRadius: 40,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 4, borderColor: "#FFF",
-    shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, elevation: 6
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 4,
+    borderColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    elevation: 6
   },
-  controlLabel: { 
-    marginTop: 12, fontSize: 12, fontWeight: "bold", 
-    color: THEME.textSec, textTransform: 'uppercase', letterSpacing: 0.5 
+  controlLabel: {
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: "bold",
+    color: THEME.textSec,
+    textTransform: "uppercase",
+    letterSpacing: 0.5
   },
 
   // REC BADGE
-  recBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFEBEE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D32F2F", marginRight: 6 },
+  recBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFEBEE",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12
+  },
+  recDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#D32F2F",
+    marginRight: 6
+  },
   recText: { fontSize: 10, fontWeight: "bold", color: "#D32F2F" },
 
   // HISTORY SECTION
   historySection: { marginTop: 10 },
-  sectionHeader: { fontSize: 13, fontWeight: "700", color: THEME.textSec, marginBottom: 10, marginLeft: 4 },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: THEME.textSec,
+    marginBottom: 10,
+    marginLeft: 4
+  },
 
   // TABLE
-  tableContainer: { borderWidth: 1, borderColor: "#EEE", borderRadius: 8, overflow: 'hidden', backgroundColor: "#FFF" },
-  tableHeader: { flexDirection: 'row', backgroundColor: "#F1F3F4", padding: 12, borderBottomWidth: 1, borderBottomColor: "#E0E0E0" },
+  tableContainer: {
+    borderWidth: 1,
+    borderColor: "#EEE",
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#FFF"
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#F1F3F4",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0"
+  },
   th: { flex: 1, fontSize: 11, fontWeight: "bold", color: "#607D8B" },
-  thRight: { width: 40, fontSize: 11, fontWeight: "bold", color: "#607D8B", textAlign: 'center' },
-  tr: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: "#FAFAFA" },
+  thRight: {
+    width: 40,
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#607D8B",
+    textAlign: "center"
+  },
+  tr: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#FAFAFA"
+  },
   trEven: { backgroundColor: "#FAFAFA" },
   td: { flex: 1, fontSize: 13, color: THEME.textSec },
-  tdRight: { width: 40, alignItems: 'center' },
-  emptyText: { textAlign: 'center', padding: 20, color: "#B0BEC5", fontSize: 12, fontStyle: 'italic' }
+  tdRight: { width: 40, alignItems: "center" },
+  emptyText: {
+    textAlign: "center",
+    padding: 20,
+    color: "#B0BEC5",
+    fontSize: 12,
+    fontStyle: "italic"
+  }
 });
 
 export default MonitorKontraksi;

@@ -10,47 +10,73 @@ import {
   ScrollView,
   Platform
 } from "react-native";
-import { MaterialIcons, Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  MaterialIcons,
+  Ionicons,
+  FontAwesome5,
+  MaterialCommunityIcons
+} from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useLocation } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ======================= MEDICAL THEME ==========================
 const THEME = {
-  bg: "#F4F6F8",       // Abu-abu klinis
-  primary: "#0277BD",  // Medical Blue
+  bg: "#F4F6F8", // Abu-abu klinis
+  primary: "#0277BD", // Medical Blue
   textMain: "#263238", // Dark Blue Grey
-  textSec: "#78909C",  // Abu-abu teks
+  textSec: "#78909C", // Abu-abu teks
   cardBg: "#FFFFFF",
-  
+
   // Warna Menu
-  menuData: "#D81B60",      // Pink (Data Awal)
+  menuData: "#D81B60", // Pink (Data Awal)
   menuKontraksi: "#0277BD", // Blue (Kontraksi)
-  menu30: "#00897B",        // Teal (30 Menit)
-  menu4h: "#F9A825",        // Orange/Gold (4 Jam)
-  
+  menu30: "#00897B", // Teal (30 Menit)
+  menu4h: "#F9A825", // Orange/Gold (4 Jam)
+
   disabled: "#CFD8DC"
 };
 
 // ------------------ COMPONENT: DASHBOARD BUTTON ------------------
-const DashboardButton = ({ title, subtitle, icon, color, onPress, disabled, loading }) => (
+const DashboardButton = ({
+  title,
+  subtitle,
+  icon,
+  color,
+  onPress,
+  disabled,
+  loading
+}) => (
   <TouchableOpacity
     style={[styles.dashBtn, disabled && styles.dashBtnDisabled]}
     onPress={onPress}
     disabled={disabled || loading}
     activeOpacity={0.8}
   >
-    <View style={[styles.iconCircle, { backgroundColor: disabled ? "#ECEFF1" : color + '15' }]}>
+    <View
+      style={[
+        styles.iconCircle,
+        { backgroundColor: disabled ? "#ECEFF1" : color + "15" }
+      ]}
+    >
       {loading ? (
         <ActivityIndicator color={color} size="small" />
       ) : (
-        <MaterialCommunityIcons name={icon} size={32} color={disabled ? "#B0BEC5" : color} />
+        <MaterialCommunityIcons
+          name={icon}
+          size={32}
+          color={disabled ? "#B0BEC5" : color}
+        />
       )}
     </View>
-    
+
     <View style={styles.btnContent}>
-      <Text style={[styles.btnTitle, disabled && { color: "#90A4AE" }]}>{title}</Text>
-      <Text style={styles.btnSubtitle}>{disabled ? "Akses Terkunci" : subtitle}</Text>
+      <Text style={[styles.btnTitle, disabled && { color: "#90A4AE" }]}>
+        {title}
+      </Text>
+      <Text style={styles.btnSubtitle}>
+        {disabled ? "Akses Terkunci" : subtitle}
+      </Text>
     </View>
 
     {disabled && (
@@ -88,8 +114,14 @@ const HomeCatatanPartograf = () => {
   };
 
   const handleMonitorKontraksiPress = () => {
-    if (!catatanPartografId) return Alert.alert("Akses Ditolak", "Mohon lengkapi 'Data Awal Partograf' terlebih dahulu.");
-    navigate(`/partograf/${partografId}/kontraksi`, { state: { catatanPartografId } });
+    if (!catatanPartografId)
+      return Alert.alert(
+        "Akses Ditolak",
+        "Mohon lengkapi 'Data Awal Partograf' terlebih dahulu."
+      );
+    navigate(`/partograf/${partografId}/kontraksi`, {
+      state: { catatanPartografId }
+    });
   };
 
   // -- RENDER CONTENT --
@@ -107,29 +139,50 @@ const HomeCatatanPartograf = () => {
 
     return (
       <View style={styles.contentContainer}>
-        
         {/* 1. PATIENT CARD (HEADER) */}
         <View style={styles.patientCard}>
           <View style={styles.patientRow}>
             <View style={styles.avatarBox}>
               <FontAwesome5 name="user-injured" size={24} color="#FFF" />
             </View>
-            <View style={{flex: 1}}>
+            <View style={{ flex: 1 }}>
               <Text style={styles.patientLabel}>NO. REGISTRASI</Text>
               <Text style={styles.patientValue}>{partografId || "N/A"}</Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: hasData ? '#E8F5E9' : '#FFEBEE' }]}>
-              <View style={[styles.statusDot, { backgroundColor: hasData ? '#2E7D32' : '#C62828' }]} />
-              <Text style={[styles.statusText, { color: hasData ? '#2E7D32' : '#C62828' }]}>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: hasData ? "#E8F5E9" : "#FFEBEE" }
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: hasData ? "#2E7D32" : "#C62828" }
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: hasData ? "#2E7D32" : "#C62828" }
+                ]}
+              >
                 {hasData ? "AKTIF" : "PENDING"}
               </Text>
             </View>
           </View>
-          
+
           {!hasData && (
             <View style={styles.alertBox}>
-              <Ionicons name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
-              <Text style={styles.alertText}>Isi Data Awal untuk membuka menu Kontraksi & 30 Menit.</Text>
+              <Ionicons
+                name="alert-circle"
+                size={16}
+                color="#D32F2F"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.alertText}>
+                Isi Data Awal untuk membuka menu Kontraksi & 30 Menit.
+              </Text>
             </View>
           )}
         </View>
@@ -138,9 +191,8 @@ const HomeCatatanPartograf = () => {
 
         {/* 2. DASHBOARD GRID */}
         <View style={styles.gridContainer}>
-          
           {/* A. DATA AWAL */}
-          <DashboardButton 
+          <DashboardButton
             title="Data Awal"
             subtitle="Identitas & Kondisi"
             icon="clipboard-account"
@@ -149,7 +201,7 @@ const HomeCatatanPartograf = () => {
           />
 
           {/* B. KONTRAKSI */}
-          <DashboardButton 
+          <DashboardButton
             title="Kontraksi"
             subtitle="Monitor Real-time"
             icon="timer-sand"
@@ -159,27 +211,46 @@ const HomeCatatanPartograf = () => {
           />
 
           {/* C. 30 MENIT */}
-          <DashboardButton 
+          <DashboardButton
             title="Obs. 30 Menit"
             subtitle="DJJ, Nadi, His"
             icon="heart-pulse"
             color={THEME.menu30}
-            onPress={() => navigate(`/partograf/${partografId}/catatan/per30`, { state: { partografId, catatanPartografId } })}
+            onPress={() =>
+              navigate(`/partograf/${partografId}/catatan/per30`, {
+                state: { partografId, catatanPartografId }
+              })
+            }
             disabled={!hasData}
           />
 
           {/* D. 4 JAM (SEKARANG TIDAK TERKUNCI) */}
-          <DashboardButton 
+          <DashboardButton
             title="Obs. 4 Jam"
             subtitle="V.T, Tensi, Suhu"
             icon="doctor"
             color={THEME.menu4h}
-            onPress={() => navigate(`/partograf/${partografId}/catatan/per4jam`, { state: { partografId, catatanPartografId } })}
+            onPress={() =>
+              navigate(`/partograf/${partografId}/catatan/per4jam`, {
+                state: { partografId, catatanPartografId }
+              })
+            }
             // Disabled dihapus agar selalu bisa diakses
           />
 
+          <DashboardButton
+            title="Hasil Input"
+            subtitle="Lihat Catatan"
+            icon="file-document-outline"
+            color="#6A1B9A" // ungu
+            onPress={() =>
+              navigate(`/partograf/${partografId}/hasil-input`, {
+                state: { partografId }
+              })
+            }
+            disabled={!hasData}
+          />
         </View>
-
       </View>
     );
   };
@@ -190,12 +261,19 @@ const HomeCatatanPartograf = () => {
 
       {/* APP BAR */}
       <View style={styles.appBar}>
-        <TouchableOpacity onPress={() => navigate("/home")} style={styles.backBtn}>
-           <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
+        <TouchableOpacity
+          onPress={() => navigate("/home")}
+          style={styles.backBtn}
+        >
+          <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>Rekam Medis Digital</Text>
         <TouchableOpacity>
-           <MaterialCommunityIcons name="dots-vertical" size={24} color={THEME.textMain} />
+          <MaterialCommunityIcons
+            name="dots-vertical"
+            size={24}
+            color={THEME.textMain}
+          />
         </TouchableOpacity>
       </View>
 
@@ -212,82 +290,142 @@ const styles = StyleSheet.create({
 
   // APP BAR
   appBar: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingVertical: 16, paddingHorizontal: 20, backgroundColor: "#FFF",
-    borderBottomWidth: 1, borderBottomColor: "#E0E0E0", elevation: 2
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "#FFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+    elevation: 2
   },
-  appBarTitle: { 
-    fontSize: 16, fontWeight: "700", color: THEME.textMain, 
-    letterSpacing: 0.5, textTransform: 'uppercase' 
+  appBarTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: THEME.textMain,
+    letterSpacing: 0.5,
+    textTransform: "uppercase"
   },
   backBtn: { padding: 4 },
 
   // LOADING
-  loadingView: { alignItems: 'center', marginTop: 60 },
+  loadingView: { alignItems: "center", marginTop: 60 },
   loadingText: { marginTop: 16, color: THEME.textSec, fontWeight: "500" },
 
   contentContainer: { padding: 20 },
 
   // PATIENT CARD
   patientCard: {
-    backgroundColor: "#FFF", borderRadius: 12, padding: 20, marginBottom: 24,
-    borderWidth: 1, borderColor: THEME.border,
-    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, elevation: 3
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    elevation: 3
   },
-  patientRow: { flexDirection: 'row', alignItems: 'center' },
+  patientRow: { flexDirection: "row", alignItems: "center" },
   avatarBox: {
-    width: 50, height: 50, borderRadius: 25, backgroundColor: THEME.textSec,
-    justifyContent: 'center', alignItems: 'center', marginRight: 16
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: THEME.textSec,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16
   },
-  patientLabel: { fontSize: 10, color: THEME.textSec, fontWeight: "bold", letterSpacing: 1 },
-  patientValue: { fontSize: 18, color: THEME.textMain, fontWeight: "bold", fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
-  
-  statusBadge: { 
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 
+  patientLabel: {
+    fontSize: 10,
+    color: THEME.textSec,
+    fontWeight: "bold",
+    letterSpacing: 1
+  },
+  patientValue: {
+    fontSize: 18,
+    color: THEME.textMain,
+    fontWeight: "bold",
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace"
+  },
+
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20
   },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
   statusText: { fontSize: 10, fontWeight: "bold" },
 
   alertBox: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 16,
-    backgroundColor: "#FFEBEE", padding: 10, borderRadius: 8
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    backgroundColor: "#FFEBEE",
+    padding: 10,
+    borderRadius: 8
   },
   alertText: { fontSize: 12, color: "#C62828" },
 
   sectionHeader: {
-    fontSize: 12, fontWeight: "700", color: "#90A4AE", marginBottom: 12, marginLeft: 4, letterSpacing: 1
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#90A4AE",
+    marginBottom: 12,
+    marginLeft: 4,
+    letterSpacing: 1
   },
 
   // GRID SYSTEM
   gridContainer: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between'
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between"
   },
 
   // DASHBOARD BUTTON
   dashBtn: {
-    width: '48%', // 2 Kolom
+    width: "48%", // 2 Kolom
     backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#ECEFF1",
-    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.03, elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    elevation: 2,
     height: 160, // Tinggi tetap agar rapi
-    justifyContent: 'space-between'
+    justifyContent: "space-between"
   },
   dashBtnDisabled: { backgroundColor: "#FAFAFA", borderColor: "#F5F5F5" },
 
   iconCircle: {
-    width: 56, height: 56, borderRadius: 28,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 12
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12
   },
-  btnContent: { flex: 1, justifyContent: 'flex-end' },
-  btnTitle: { fontSize: 15, fontWeight: "700", color: THEME.textMain, marginBottom: 4 },
+  btnContent: { flex: 1, justifyContent: "flex-end" },
+  btnTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: THEME.textMain,
+    marginBottom: 4
+  },
   btnSubtitle: { fontSize: 11, color: THEME.textSec },
 
   lockIcon: {
-    position: 'absolute', top: 12, right: 12
+    position: "absolute",
+    top: 12,
+    right: 12
   }
 });
 

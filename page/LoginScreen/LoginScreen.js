@@ -36,7 +36,7 @@ export default function LoginScreen() {
 
     try {
       const response = await fetch(
-        `https://restful-api-bmc-production.up.railway.app/api/login-bidan`,
+        "https://restful-api-bmc-production.up.railway.app/api/login-bidan",
         {
           method: "POST",
           headers: {
@@ -47,7 +47,17 @@ export default function LoginScreen() {
         }
       );
 
-      const data = await response.json();
+      /** =============================
+       *   FIX: HANDLE JSON / NON JSON
+       * ============================= */
+      const text = await response.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error("Server mengembalikan response tidak valid.");
+      }
 
       if (!response.ok) {
         throw new Error(data.message || "Username atau Password salah.");
@@ -57,9 +67,8 @@ export default function LoginScreen() {
 
       if (data.token) {
         await AsyncStorage.setItem("userToken", data.token);
-        console.log("Token berhasil disimpan!");
       } else {
-        throw new Error("Token tidak ada di server.");
+        throw new Error("Token tidak ditemukan di server.");
       }
 
       setShowSuccess(true);
@@ -68,6 +77,7 @@ export default function LoginScreen() {
         setShowSuccess(false);
         navigate("/home");
       }, 1500);
+
     } catch (error) {
       setIsLoading(false);
       alert(error.message);
@@ -79,9 +89,6 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {/* ============================ */}
-      {/*       POPUP SUKSES           */}
-      {/* ============================ */}
       {showSuccess && (
         <View style={styles.successOverlay}>
           <View style={styles.successBox}>
@@ -91,9 +98,6 @@ export default function LoginScreen() {
         </View>
       )}
 
-      {/* ============================ */}
-      {/*            HEADER            */}
-      {/* ============================ */}
       <View style={styles.header}>
         <Image source={require("../../assets/Logo.png")} style={styles.logo} />
         <View style={styles.textBlock}>
@@ -102,7 +106,6 @@ export default function LoginScreen() {
         </View>
       </View>
 
-      {/* IMAGE ATAS */}
       <View style={styles.imageWrapper}>
         <Image
           source={require("../../assets/Dokter.png")}
@@ -110,7 +113,6 @@ export default function LoginScreen() {
         />
       </View>
 
-      {/* FORM */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -118,7 +120,6 @@ export default function LoginScreen() {
         <View style={styles.loginCard}>
           <Text style={styles.loginTitle}>Login</Text>
 
-          {/* USERNAME */}
           <Text style={styles.label}>Username:</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -140,7 +141,6 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* PASSWORD */}
           <Text style={styles.label}>Password:</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -162,7 +162,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* LOGIN BUTTON */}
           <TouchableOpacity
             style={styles.loginButton}
             onPress={handleLogin}
@@ -213,12 +212,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#333"
-  },
-  successDesc: {
-    marginTop: 5,
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center"
   },
 
   header: {
@@ -282,6 +275,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000"
   },
+
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",

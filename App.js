@@ -13,6 +13,7 @@ import MonitorKontraksi from "./page/MonitorKontraksi/MonitorKontraksi";
 // → Tambahan 2 page baru
 import Per30MenitPage from "./page/CardMenitJam/Per30Menit";
 import Per4JamPage from "./page/CardMenitJam/Per4jam";
+import HasilInputPartograf from "./page/HasilInputPartograf/HasilInputPartograf";
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -42,8 +43,18 @@ export default function App() {
             element={<MonitorKontraksi />}
           />
           <Route path="/partograf/:id/catatan" element={<CatatanPartograf />} />
-          <Route path="/partograf/:id/catatan/per30" element={<Per30MenitPage />} />
-          <Route path="/partograf/:id/catatan/per4jam" element={<Per4JamPage />} />
+          <Route
+            path="/partograf/:id/catatan/per30"
+            element={<Per30MenitPage />}
+          />
+          <Route
+            path="/partograf/:id/catatan/per4jam"
+            element={<Per4JamPage />}
+          />
+          <Route
+            path="/partograf/:id/hasil-input"
+            element={<HasilInputPartograf />}
+          />
         </Routes>
       </NativeRouter>
     </SafeAreaProvider>

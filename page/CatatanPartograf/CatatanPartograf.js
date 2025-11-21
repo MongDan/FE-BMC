@@ -5,22 +5,22 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  TouchableOpacity,
   Alert,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Pressable
 } from "react-native";
-import { useParams, useNavigate } from "react-router-native";
+import { useParams, useNavigate, useLocation } from "react-router-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Ionicons,
   MaterialIcons,
-  FontAwesome5,
   MaterialCommunityIcons
 } from "@expo/vector-icons";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 // ======================= MEDICAL THEME ==========================
 const THEME = {
@@ -32,7 +32,7 @@ const THEME = {
   cardBg: "#FFFFFF",
   border: "#ECEFF1",
   inputBg: "#FAFAFA",
-  activeInput: "#E1F5FE",
+  activeInput: "#0277BD",
   placeholder: "#B0BEC5"
 };
 
@@ -44,8 +44,44 @@ function FormInput({
   onChange,
   placeholder,
   keyboardType = "default",
-  suffix
+  suffix,
+  isDateTime = false
 }) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handleConfirm = (date) => {
+  // Format waktu lokal: YYYY-MM-DD HH:MM:SS
+  const pad = (n) => n.toString().padStart(2, "0");
+  const formatted = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  
+  onChange(name, formatted);
+  setShowPicker(false);
+};
+
+
+  if (isDateTime) {
+    return (
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <Pressable
+          onPress={() => setShowPicker(true)}
+          style={[styles.inputWrapper, { justifyContent: "space-between" }]}
+        >
+          <Text style={[styles.inputField, { paddingVertical: 10 }]}>
+            {value || placeholder}
+          </Text>
+          <Ionicons name="calendar" size={20} color={THEME.textSec} />
+        </Pressable>
+        <DateTimePickerModal
+          isVisible={showPicker}
+          mode="datetime"
+          onConfirm={handleConfirm}
+          onCancel={() => setShowPicker(false)}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -64,23 +100,26 @@ function FormInput({
   );
 }
 
-// ------------------ COMPONENT: CHIP PICKER ------------------
+// ------------------ COMPONENT: CHIP PICKER / DROPDOWN ------------------
 function Picker({ label, value, onChangeValue, options }) {
   return (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={styles.chipContainer}>
         {options.map((item, i) => {
-          const val = item.value || item;
-          const text = item.label || item;
+          const val = item.value ?? item;
+          const text = item.label ?? item;
           const isActive = value === val;
 
           return (
-            <TouchableOpacity
+            <Pressable
               key={i}
-              style={[styles.chip, isActive && styles.chipActive]}
               onPress={() => onChangeValue(val)}
-              activeOpacity={0.8}
+              style={({ pressed }) => [
+                styles.chip,
+                isActive && styles.chipActive,
+                pressed && !isActive && { backgroundColor: "#E0E0E0" }
+              ]}
             >
               {isActive && (
                 <Ionicons
@@ -90,12 +129,10 @@ function Picker({ label, value, onChangeValue, options }) {
                   style={{ marginRight: 4 }}
                 />
               )}
-              <Text
-                style={[styles.chipText, isActive && styles.chipTextActive]}
-              >
+              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
                 {text}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -118,12 +155,14 @@ function Card({ title, icon, iconColor, children }) {
   );
 }
 
+// ------------------ MAIN COMPONENT ------------------
 export default function CatatanPartograf() {
-  const { id } = useParams(); // ID Partograf Utama
+  const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const noRegis = location.state?.noRegis ?? id;
   const [isLoading, setIsLoading] = useState(false);
 
-  // STATUS BAR
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
     StatusBar.setBackgroundColor("#FFF");
@@ -131,6 +170,7 @@ export default function CatatanPartograf() {
 
   const emptyForm = {
     partograf_id: id,
+    waktu_catat: new Date().toISOString().slice(0, 19).replace("T", " "),
     djj: "",
     pembukaan_servik: "",
     penurunan_kepala: "",
@@ -153,20 +193,18 @@ export default function CatatanPartograf() {
   }, [id]);
 
   const handleChange = (name, value) => {
+    if (["air_ketuban", "molase"].includes(name)) {
+      value = value.toString().toUpperCase();
+    }
     setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async () => {
     const userToken = await AsyncStorage.getItem("userToken");
-    if (!userToken)
-      return Alert.alert("Akses Ditolak", "Token tidak ditemukan.");
+    if (!userToken) return Alert.alert("Akses Ditolak", "Token tidak ditemukan.");
 
-    // Simple Validation
     if (!form.djj && !form.pembukaan_servik) {
-      return Alert.alert(
-        "Data Kosong",
-        "Mohon isi setidaknya satu data vital."
-      );
+      return Alert.alert("Data Kosong", "Mohon isi setidaknya satu data vital.");
     }
 
     setIsLoading(true);
@@ -177,19 +215,16 @@ export default function CatatanPartograf() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}`
+            Authorization: `Bearer ${userToken}`,
+            Accept: "application/json"
           },
           body: JSON.stringify(form)
         }
       );
 
       const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Terjadi kesalahan");
 
-      if (!res.ok) {
-        throw new Error(json.message || "Terjadi kesalahan");
-      }
-
-      // Simpan ID Catatan Baru
       const newCatatanId = json.data?.id;
       if (newCatatanId) {
         await AsyncStorage.setItem(`catatanId_${id}`, newCatatanId.toString());
@@ -198,7 +233,7 @@ export default function CatatanPartograf() {
       Alert.alert(
         "Berhasil",
         "Catatan Partograf berhasil disimpan.",
-        [{ text: "OK", onPress: () => navigate(-1) }] // Kembali setelah simpan
+        [{ text: "OK", onPress: () => navigate(-1) }]
       );
     } catch (error) {
       Alert.alert("Gagal", error.message);
@@ -209,19 +244,20 @@ export default function CatatanPartograf() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
+        <Pressable
           onPress={() =>
             navigate("/home-catatan", { state: { partografId: id } })
           }
           style={styles.backBtn}
         >
           <Ionicons name="arrow-back" size={24} color={THEME.textMain} />
-        </TouchableOpacity>
+        </Pressable>
         <View>
           <Text style={styles.headerTitle}>Formulir Partograf</Text>
-          <Text style={styles.headerSubtitle}>ID Pasien: {id}</Text>
+          <Text style={styles.headerSubtitle}>
+            No. Registrasi Pasien: {noRegis}
+          </Text>
         </View>
       </View>
 
@@ -233,62 +269,38 @@ export default function CatatanPartograf() {
           contentContainerStyle={styles.contentArea}
           showsVerticalScrollIndicator={false}
         >
-          {/* CARD 1: Vital Signs */}
-          <Card
-            title="Tanda Vital & Fisik"
-            icon="heart-pulse"
-            iconColor="#E53935"
-          >
-            <View style={styles.row}>
-              <View style={styles.col}>
-                <FormInput
-                  label="DJJ"
-                  name="djj"
-                  value={form.djj}
-                  placeholder="140"
-                  suffix="bpm"
-                  keyboardType="numeric"
-                  onChange={handleChange}
-                />
-              </View>
-              <View style={styles.col}>
-                <FormInput
-                  label="Nadi Ibu"
-                  name="nadi_ibu"
-                  value={form.nadi_ibu}
-                  placeholder="80"
-                  suffix="bpm"
-                  keyboardType="numeric"
-                  onChange={handleChange}
-                />
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <View style={styles.col}>
-                <FormInput
-                  label="Pembukaan"
-                  name="pembukaan_servik"
-                  value={form.pembukaan_servik}
-                  placeholder="0-10"
-                  suffix="cm"
-                  keyboardType="numeric"
-                  onChange={handleChange}
-                />
-              </View>
-              <View style={styles.col}>
-                <FormInput
-                  label="Penurunan"
-                  name="penurunan_kepala"
-                  value={form.penurunan_kepala}
-                  placeholder="0-5"
-                  suffix="Hodge"
-                  keyboardType="numeric"
-                  onChange={handleChange}
-                />
-              </View>
-            </View>
-
+          {/* CARD: Vital Signs */}
+          <Card title="Tanda Vital & Fisik" icon="heart-pulse" iconColor="#E53935">
+            <Picker
+              label="Pembukaan Servik (cm)"
+              value={form.pembukaan_servik}
+              onChangeValue={(v) => handleChange("pembukaan_servik", v)}
+              options={Array.from({ length: 7 }, (_, i) => (i + 4).toString())}
+            />
+            <Picker
+              label="Penurunan Kepala (per 5)"
+              value={form.penurunan_kepala}
+              onChangeValue={(v) => handleChange("penurunan_kepala", v)}
+              options={["0", "1", "2", "3", "4", "5"]}
+            />
+            <FormInput
+              label="DJJ"
+              name="djj"
+              value={form.djj}
+              placeholder="140"
+              suffix="bpm"
+              keyboardType="numeric"
+              onChange={handleChange}
+            />
+            <FormInput
+              label="Nadi Ibu"
+              name="nadi_ibu"
+              value={form.nadi_ibu}
+              placeholder="80"
+              suffix="bpm"
+              keyboardType="numeric"
+              onChange={handleChange}
+            />
             <FormInput
               label="Suhu Tubuh Ibu"
               name="suhu_ibu"
@@ -300,51 +312,38 @@ export default function CatatanPartograf() {
             />
           </Card>
 
-          {/* CARD 2: Pemantauan Tambahan */}
-          <Card
-            title="Laboratorium & Urin"
-            icon="test-tube"
-            iconColor="#1E88E5"
-          >
-            <View style={styles.row}>
-              <View style={styles.col}>
-                <FormInput
-                  label="Tensi Sistole"
-                  name="sistolik"
-                  value={form.sistolik}
-                  placeholder="120"
-                  suffix="mmHg"
-                  keyboardType="numeric"
-                  onChange={handleChange}
-                />
-              </View>
-              <View style={styles.col}>
-                <FormInput
-                  label="Tensi Diastole"
-                  name="diastolik"
-                  value={form.diastolik}
-                  placeholder="80"
-                  suffix="mmHg"
-                  keyboardType="numeric"
-                  onChange={handleChange}
-                />
-              </View>
-            </View>
-
+          {/* CARD: Laboratorium & Urin */}
+          <Card title="Laboratorium & Urin" icon="test-tube" iconColor="#1E88E5">
+            <FormInput
+              label="Tensi Sistole"
+              name="sistolik"
+              value={form.sistolik}
+              placeholder="120"
+              suffix="mmHg"
+              keyboardType="numeric"
+              onChange={handleChange}
+            />
+            <FormInput
+              label="Tensi Diastole"
+              name="diastolik"
+              value={form.diastolik}
+              placeholder="80"
+              suffix="mmHg"
+              keyboardType="numeric"
+              onChange={handleChange}
+            />
             <Picker
               label="Aseton Urin"
               value={form.aseton}
               onChangeValue={(v) => handleChange("aseton", v)}
-              options={["Negatif (-)", "Positif (+)"]}
+              options={["-", "+"].map((v) => ({ label: v, value: v }))}
             />
-
             <Picker
               label="Protein Urin"
               value={form.protein}
               onChangeValue={(v) => handleChange("protein", v)}
-              options={["-", "+", "++", "+++"]}
+              options={["-", "+", "++", "+++"].map((v) => ({ label: v, value: v }))}
             />
-
             <FormInput
               label="Volume Urine"
               name="volume_urine"
@@ -356,7 +355,7 @@ export default function CatatanPartograf() {
             />
           </Card>
 
-          {/* CARD 3: Obat & Cairan */}
+          {/* CARD: Terapi & Kondisi Janin */}
           <Card title="Terapi & Kondisi Janin" icon="pill" iconColor="#00897B">
             <FormInput
               label="Obat-obatan / Cairan Infus"
@@ -365,33 +364,39 @@ export default function CatatanPartograf() {
               placeholder="Cth: Oksitosin 10 IU, RL 500ml"
               onChange={handleChange}
             />
-
             <Picker
               label="Air Ketuban"
               value={form.air_ketuban}
               onChangeValue={(v) => handleChange("air_ketuban", v)}
               options={[
-                { label: "Jernih (J)", value: "j" },
-                { label: "Hijau (H)", value: "h" },
-                { label: "Mekonium (M)", value: "m" },
-                { label: "Darah (D)", value: "d" },
-                { label: "Kering (K)", value: "k" }
+                { label: "Jernih (J)", value: "J" },
+                { label: "Ketuban Belum Pecah (U)", value: "U" },
+                { label: "Mekonium (M)", value: "M" },
+                { label: "Darah (D)", value: "D" },
+                { label: "Kering (K)", value: "K" }
               ]}
             />
-
             <Picker
               label="Molase (Penyusupan Kepala)"
               value={form.molase}
               onChangeValue={(v) => handleChange("molase", v)}
               options={["0", "1", "2", "3"]}
             />
+            {/* ===== FIELD WAKTU CATAT DENGAN DATE TIME PICKER ===== */}
+            <FormInput
+              label="Waktu Catat"
+              name="waktu_catat"
+              value={form.waktu_catat}
+              placeholder="YYYY-MM-DD HH:MM:SS"
+              onChange={handleChange}
+              isDateTime={true}
+            />
           </Card>
 
-          <TouchableOpacity
+          <Pressable
             style={styles.submitButton}
             onPress={handleSubmit}
             disabled={isLoading}
-            activeOpacity={0.8}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFF" />
@@ -406,7 +411,7 @@ export default function CatatanPartograf() {
                 <Text style={styles.submitText}>SIMPAN DATA</Text>
               </>
             )}
-          </TouchableOpacity>
+          </Pressable>
 
           <View style={{ height: 50 }} />
         </ScrollView>
@@ -415,10 +420,9 @@ export default function CatatanPartograf() {
   );
 }
 
+// ------------------ STYLES ------------------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.bg },
-
-  // HEADER
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -431,10 +435,7 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 16, padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
   headerSubtitle: { fontSize: 12, color: THEME.textSec },
-
   contentArea: { padding: 16 },
-
-  // CARD STYLE
   card: {
     backgroundColor: THEME.cardBg,
     borderRadius: 12,
@@ -463,15 +464,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
   cardBody: { padding: 16 },
-
-  // FORM INPUTS
   inputContainer: { marginBottom: 16 },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: THEME.textSec,
-    marginBottom: 6
-  },
+  inputLabel: { fontSize: 12, fontWeight: "600", color: THEME.textSec, marginBottom: 6 },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -481,34 +475,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12
   },
-  inputField: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: THEME.textMain
-  },
-  inputSuffix: {
-    fontSize: 12,
-    color: THEME.textSec,
-    fontWeight: "600",
-    marginLeft: 8
-  },
-
-  // GRID SYSTEM
-  row: { flexDirection: "row", justifyContent: "space-between" },
-  col: { width: "48%" },
-
-  // CHIP PICKER
+  inputField: { flex: 1, fontSize: 15, color: THEME.textMain },
+  inputSuffix: { fontSize: 12, color: THEME.textSec, fontWeight: "600", marginLeft: 8 },
   chipContainer: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    justifyContent: "center",
+    minWidth: 45,
+    height: 40,
     paddingHorizontal: 12,
     backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: THEME.border,
-    borderRadius: 20,
+    borderRadius: 8,
     marginRight: 8,
     marginBottom: 8
   },
@@ -516,10 +496,8 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.primary,
     borderColor: THEME.primary
   },
-  chipText: { fontSize: 12, color: THEME.textSec, fontWeight: "600" },
-  chipTextActive: { color: "#FFF" },
-
-  // SUBMIT BUTTON
+  chipText: { fontSize: 14, color: THEME.textSec, fontWeight: "600" },
+  chipTextActive: { color: "#FFF", fontWeight: "600" },
   submitButton: {
     flexDirection: "row",
     justifyContent: "center",
@@ -533,10 +511,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     elevation: 4
   },
-  submitText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    letterSpacing: 1
-  }
+  submitText: { color: "#FFF", fontSize: 16, fontWeight: "bold", letterSpacing: 1 }
 });
