@@ -82,9 +82,7 @@ const HasilInputPartograf = () => {
         <TouchableOpacity
           // FIX: Tambahkan STATE saat back, biar Dashboard gak N/A
           // Pastikan path '/home-catatan/' ini benar sesuai router abang
-          onPress={() =>
-            navigate(`/home-catatan/${id}`, { state: { partografId: id, name: name } })
-          }
+          onPress={() => navigate(-1)}
           style={styles.backBtn}
         >
           <Ionicons name="arrow-back" size={24} color={THEME.textMain} />

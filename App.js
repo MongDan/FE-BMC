@@ -18,10 +18,10 @@ import KemajuanPersalinan from "./page/HasilInputPartograf/KemajuanPersalinan";
 import KondisiIbu from "./page/HasilInputPartograf/KondisiIbu";
 import ObatDanCairan from "./page/HasilInputPartograf/ObatDanCairan";
 import KondisiJanin from "./page/HasilInputPartograf/KondisiJanin";
-
 import PartografView from "./page/View/PartografView";
 import TambahEdukasi from "./page/KontenEdukasi/TambahEdukasi";
 import LihatEdukasi from "./page/KontenEdukasi/LihatEdukasi";
+
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);

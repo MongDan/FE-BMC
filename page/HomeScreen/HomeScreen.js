@@ -289,14 +289,11 @@ export default function HomeScreen() {
         pasien={pasien}
         onPress={() =>
           navigate(`/home-catatan/${pasien.partograf_id}`, {
-            state: {
-              partografId: pasien.partograf_id,
-              noReg: pasien.no_reg, // <--- PENTING: Kirim No Reg disini
-            },
-            state: { partografId: pasien.partograf_id, name: pasien.nama }
+            state: { partografId: pasien.partograf_id, name: pasien.nama, noReg: pasien.no_reg}
           })
         }
       />
+      
     ));
   };
 

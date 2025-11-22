@@ -320,12 +320,7 @@ export default function CatatanPartograf() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable
-          onPress={() =>
-            navigate(`/home-catatan/${id}`, { state: { partografId: id } })
-          }
-          style={styles.backBtn}
-        >
+        <Pressable onPress={() => navigate(-1)} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={THEME.textMain} />
         </Pressable>
         <View>

@@ -86,17 +86,20 @@ const DashboardButton = ({
 
 const HomeCatatanPartograf = () => {
   const navigate = useNavigate();
-  const location = useLocation();  // const partografId = location.state?.partografId;
-  const { partografId, noReg } = location.state || {};
+  const location = useLocation();
 
-  // const [partografId, setPartografId] = useState(location.state?.partografId);
-  const [name, setName] = useState(location.state?.name);
+
+  const [partografId, setPartografId] = useState(location.state?.partografId);
+  const [name, setName] = useState(location.state?.name || "Pasien");
+  const [noReg, setNoReg] = useState(location.state?.noReg);
+
   const [catatanPartografId, setCatatanPartografId] = useState(null);
   const [isCheckingId, setIsCheckingId] = useState(true);
 
   useEffect(() => {
     if (location.state) {
-      // setPartografId(location.state.partografId);
+      setPartografId(location.state.partografId);
+      setNoReg(location.state.noReg);
       setName(location.state.name);
     }
   }, [location.state]);
