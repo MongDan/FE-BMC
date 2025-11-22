@@ -135,7 +135,7 @@ export default function Per4jam() {
       <View style={styles.appBar}>
         <TouchableOpacity
           onPress={() =>
-            navigate(`/home-catatan`, { state: { partografId: id } })
+            navigate(`/home-catatan/${id}`, { state: { partografId: id } })
           }
           style={styles.backBtn}
         >

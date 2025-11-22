@@ -17,23 +17,24 @@ import {
   MaterialCommunityIcons
 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// ❗ FIX IMPORT
+import { useParams } from "react-router"; 
 import { useNavigate, useLocation } from "react-router-native";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ======================= MEDICAL THEME ==========================
 const THEME = {
-  bg: "#F4F6F8", // Abu-abu klinis
-  primary: "#0277BD", // Medical Blue
-  textMain: "#263238", // Dark Blue Grey
-  textSec: "#78909C", // Abu-abu teks
+  bg: "#F4F6F8",
+  primary: "#0277BD",
+  textMain: "#263238",
+  textSec: "#78909C",
   cardBg: "#FFFFFF",
-
-  // Warna Menu
-  menuData: "#D81B60", // Pink (Data Awal)
-  menuKontraksi: "#0277BD", // Blue (Kontraksi)
-  menu30: "#00897B", // Teal (30 Menit)
-  menu4h: "#F9A825", // Orange/Gold (4 Jam)
-
+  menuData: "#D81B60",
+  menuKontraksi: "#0277BD",
+  menu30: "#00897B",
+  menu4h: "#F9A825",
   disabled: "#CFD8DC"
 };
 
@@ -89,8 +90,9 @@ const DashboardButton = ({
 
 const HomeCatatanPartograf = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const partografId = location.state?.partografId;
+
+  // ❗ UseParams sudah benar sekarang
+  const { id: partografId } = useParams();
 
   const [catatanPartografId, setCatatanPartografId] = useState(null);
   const [isCheckingId, setIsCheckingId] = useState(true);
@@ -107,7 +109,6 @@ const HomeCatatanPartograf = () => {
     loadCatatanId();
   }, [partografId]);
 
-  // -- HANDLERS --
   const handleDataPartografPress = () => {
     if (partografId) navigate(`/partograf/${partografId}/catatan`);
     else Alert.alert("Error", "ID Partograf Missing");
@@ -119,12 +120,12 @@ const HomeCatatanPartograf = () => {
         "Akses Ditolak",
         "Mohon lengkapi 'Data Awal Partograf' terlebih dahulu."
       );
-    navigate(`/partograf/${partografId}/kontraksi`, {
-      state: { catatanPartografId }
-    });
+
+    navigate(
+      `/monitor-kontraksi/${catatanPartografId}/${partografId}`
+    );
   };
 
-  // -- RENDER CONTENT --
   const renderContent = () => {
     const hasData = !!catatanPartografId;
 
@@ -139,7 +140,7 @@ const HomeCatatanPartograf = () => {
 
     return (
       <View style={styles.contentContainer}>
-        {/* 1. PATIENT CARD (HEADER) */}
+        {/* HEADER INFO */}
         <View style={styles.patientCard}>
           <View style={styles.patientRow}>
             <View style={styles.avatarBox}>
@@ -149,6 +150,7 @@ const HomeCatatanPartograf = () => {
               <Text style={styles.patientLabel}>NO. REGISTRASI</Text>
               <Text style={styles.patientValue}>{partografId || "N/A"}</Text>
             </View>
+
             <View
               style={[
                 styles.statusBadge,
@@ -189,7 +191,6 @@ const HomeCatatanPartograf = () => {
 
         <Text style={styles.sectionHeader}>DASHBOARD OBSERVASI</Text>
 
-        {/* 2. DASHBOARD GRID */}
         <View style={styles.gridContainer}>
           {/* A. DATA AWAL */}
           <DashboardButton
@@ -224,7 +225,7 @@ const HomeCatatanPartograf = () => {
             disabled={!hasData}
           />
 
-          {/* D. 4 JAM (SEKARANG TIDAK TERKUNCI) */}
+          {/* D. 4 JAM */}
           <DashboardButton
             title="Obs. 4 Jam"
             subtitle="V.T, Tensi, Suhu"
@@ -235,14 +236,14 @@ const HomeCatatanPartograf = () => {
                 state: { partografId, catatanPartografId }
               })
             }
-            // Disabled dihapus agar selalu bisa diakses
           />
 
+          {/* E. HASIL INPUT */}
           <DashboardButton
             title="Hasil Input"
             subtitle="Lihat Catatan"
             icon="file-document-outline"
-            color="#6A1B9A" // ungu
+            color="#6A1B9A"
             onPress={() =>
               navigate(`/partograf/${partografId}/hasil-input`, {
                 state: { partografId }
@@ -284,11 +285,10 @@ const HomeCatatanPartograf = () => {
   );
 };
 
-// ------------------ STYLES (CLINICAL DASHBOARD) ------------------
+// ------------------ STYLES ------------------
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: THEME.bg },
-
-  // APP BAR
+  
   appBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -309,13 +309,11 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
 
-  // LOADING
   loadingView: { alignItems: "center", marginTop: 60 },
   loadingText: { marginTop: 16, color: THEME.textSec, fontWeight: "500" },
 
   contentContainer: { padding: 20 },
 
-  // PATIENT CARD
   patientCard: {
     backgroundColor: "#FFF",
     borderRadius: 12,
@@ -380,16 +378,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1
   },
 
-  // GRID SYSTEM
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between"
   },
 
-  // DASHBOARD BUTTON
   dashBtn: {
-    width: "48%", // 2 Kolom
+    width: "48%",
     backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 16,
@@ -400,7 +396,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     elevation: 2,
-    height: 160, // Tinggi tetap agar rapi
+    height: 160,
     justifyContent: "space-between"
   },
   dashBtnDisabled: { backgroundColor: "#FAFAFA", borderColor: "#F5F5F5" },

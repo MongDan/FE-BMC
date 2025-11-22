@@ -50,14 +50,17 @@ function FormInput({
   const [showPicker, setShowPicker] = useState(false);
 
   const handleConfirm = (date) => {
-  // Format waktu lokal: YYYY-MM-DD HH:MM:SS
-  const pad = (n) => n.toString().padStart(2, "0");
-  const formatted = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-  
-  onChange(name, formatted);
-  setShowPicker(false);
-};
+    // Format waktu lokal: YYYY-MM-DD HH:MM:SS
+    const pad = (n) => n.toString().padStart(2, "0");
+    const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+      date.getSeconds()
+    )}`;
 
+    onChange(name, formatted);
+    setShowPicker(false);
+  };
 
   if (isDateTime) {
     return (
@@ -129,7 +132,9 @@ function Picker({ label, value, onChangeValue, options }) {
                   style={{ marginRight: 4 }}
                 />
               )}
-              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+              <Text
+                style={[styles.chipText, isActive && styles.chipTextActive]}
+              >
                 {text}
               </Text>
             </Pressable>
@@ -201,10 +206,14 @@ export default function CatatanPartograf() {
 
   const handleSubmit = async () => {
     const userToken = await AsyncStorage.getItem("userToken");
-    if (!userToken) return Alert.alert("Akses Ditolak", "Token tidak ditemukan.");
+    if (!userToken)
+      return Alert.alert("Akses Ditolak", "Token tidak ditemukan.");
 
     if (!form.djj && !form.pembukaan_servik) {
-      return Alert.alert("Data Kosong", "Mohon isi setidaknya satu data vital.");
+      return Alert.alert(
+        "Data Kosong",
+        "Mohon isi setidaknya satu data vital."
+      );
     }
 
     setIsLoading(true);
@@ -230,11 +239,9 @@ export default function CatatanPartograf() {
         await AsyncStorage.setItem(`catatanId_${id}`, newCatatanId.toString());
       }
 
-      Alert.alert(
-        "Berhasil",
-        "Catatan Partograf berhasil disimpan.",
-        [{ text: "OK", onPress: () => navigate(-1) }]
-      );
+      Alert.alert("Berhasil", "Catatan Partograf berhasil disimpan.", [
+        { text: "OK", onPress: () => navigate(-1) }
+      ]);
     } catch (error) {
       Alert.alert("Gagal", error.message);
     } finally {
@@ -247,7 +254,7 @@ export default function CatatanPartograf() {
       <View style={styles.header}>
         <Pressable
           onPress={() =>
-            navigate("/home-catatan", { state: { partografId: id } })
+            navigate(`/home-catatan/${id}`, { state: { partografId: id } })
           }
           style={styles.backBtn}
         >
@@ -270,7 +277,11 @@ export default function CatatanPartograf() {
           showsVerticalScrollIndicator={false}
         >
           {/* CARD: Vital Signs */}
-          <Card title="Tanda Vital & Fisik" icon="heart-pulse" iconColor="#E53935">
+          <Card
+            title="Tanda Vital & Fisik"
+            icon="heart-pulse"
+            iconColor="#E53935"
+          >
             <Picker
               label="Pembukaan Servik (cm)"
               value={form.pembukaan_servik}
@@ -313,7 +324,11 @@ export default function CatatanPartograf() {
           </Card>
 
           {/* CARD: Laboratorium & Urin */}
-          <Card title="Laboratorium & Urin" icon="test-tube" iconColor="#1E88E5">
+          <Card
+            title="Laboratorium & Urin"
+            icon="test-tube"
+            iconColor="#1E88E5"
+          >
             <FormInput
               label="Tensi Sistole"
               name="sistolik"
@@ -342,7 +357,10 @@ export default function CatatanPartograf() {
               label="Protein Urin"
               value={form.protein}
               onChangeValue={(v) => handleChange("protein", v)}
-              options={["-", "+", "++", "+++"].map((v) => ({ label: v, value: v }))}
+              options={["-", "+", "++", "+++"].map((v) => ({
+                label: v,
+                value: v
+              }))}
             />
             <FormInput
               label="Volume Urine"
@@ -465,7 +483,12 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
   cardBody: { padding: 16 },
   inputContainer: { marginBottom: 16 },
-  inputLabel: { fontSize: 12, fontWeight: "600", color: THEME.textSec, marginBottom: 6 },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: THEME.textSec,
+    marginBottom: 6
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -476,7 +499,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12
   },
   inputField: { flex: 1, fontSize: 15, color: THEME.textMain },
-  inputSuffix: { fontSize: 12, color: THEME.textSec, fontWeight: "600", marginLeft: 8 },
+  inputSuffix: {
+    fontSize: 12,
+    color: THEME.textSec,
+    fontWeight: "600",
+    marginLeft: 8
+  },
   chipContainer: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
     flexDirection: "row",
@@ -511,5 +539,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     elevation: 4
   },
-  submitText: { color: "#FFF", fontSize: 16, fontWeight: "bold", letterSpacing: 1 }
+  submitText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    letterSpacing: 1
+  }
 });

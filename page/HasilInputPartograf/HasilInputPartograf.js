@@ -5,11 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  ScrollView
+  ScrollView,
+  Alert
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useParams, useNavigate } from "react-router-native";
+import { useParams, useNavigate, useLocation } from "react-router-native";
 
 // ======================= THEME ==========================
 const THEME = {
@@ -19,22 +20,15 @@ const THEME = {
   textSec: "#78909C",
   cardBg: "#FFFFFF",
   border: "#ECEFF1",
-  
-  // Warna Kategori
-  colorPersalinan: "#8E24AA", // Ungu
-  colorJanin: "#00897B",      // Teal
-  colorIbu: "#E53935",        // Merah
-  colorObat: "#F57C00"        // Orange
+
+  colorPersalinan: "#8E24AA",
+  colorJanin: "#00897B",
+  colorIbu: "#E53935",
+  colorObat: "#F57C00"
 };
 
-// ------------------ COMPONENT: DASHBOARD BUTTON (Style Referensi) ------------------
-const DashboardButton = ({
-  title,
-  subtitle,
-  icon,
-  color,
-  onPress
-}) => (
+// ------------------ DASHBOARD BUTTON ------------------
+const DashboardButton = ({ title, subtitle, icon, color, onPress }) => (
   <TouchableOpacity
     style={styles.dashBtn}
     onPress={onPress}
@@ -48,22 +42,32 @@ const DashboardButton = ({
       <Text style={styles.btnTitle}>{title}</Text>
       <Text style={styles.btnSubtitle}>{subtitle}</Text>
     </View>
-    
-    {/* Indikator Panah Kecil di pojok */}
+
     <View style={styles.arrowIcon}>
-       <MaterialCommunityIcons name="chevron-right" size={20} color={THEME.textSec} />
+      <MaterialCommunityIcons
+        name="chevron-right"
+        size={20}
+        color={THEME.textSec}
+      />
     </View>
   </TouchableOpacity>
 );
 
 const HasilInputPartograf = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const partografId = location.state?.partografId || id;
   const navigate = useNavigate();
 
-  // Fungsi Navigasi
-  const handlePress = (category) => {
-    // Mengarahkan ke sub-halaman detail (Sesuaikan route ini nantinya)
-    navigate(`/partograf/${id}/hasil/${category}`);
+  // Fungsi navigasi
+  const handlePress = (to) => {
+    if (!partografId) {
+      Alert.alert("Error", "Id Partograf tidak ditemukan.");
+      return;
+    }
+
+    const finalPath = to.replace(":id", partografId);
+    navigate(finalPath, { state: { partografId } });
   };
 
   return (
@@ -73,7 +77,7 @@ const HasilInputPartograf = () => {
       {/* APP BAR */}
       <View style={styles.appBar}>
         <TouchableOpacity
-          onPress={() => navigate(-1)}
+          onPress={() => navigate(`/home-catatan/${id}`)}
           style={styles.backBtn}
         >
           <Ionicons name="arrow-back" size={24} color={THEME.textMain} />
@@ -85,40 +89,40 @@ const HasilInputPartograf = () => {
         <Text style={styles.sectionHeader}>KATEGORI DATA</Text>
 
         <View style={styles.gridContainer}>
-          {/* 1. KEMAJUAN PERSALINAN */}
           <DashboardButton
             title="Kemajuan Persalinan"
             subtitle="Pembukaan, Penurunan, Kontraksi"
             icon="human-pregnant"
             color={THEME.colorPersalinan}
-            onPress={() => handlePress('persalinan')}
+            onPress={() =>
+              handlePress("/partograf/:id/catatan/kemajuan-persalinan")
+            }
           />
 
-          {/* 2. KONDISI JANIN */}
           <DashboardButton
             title="Kondisi Janin"
             subtitle="DJJ, Molase, Air Ketuban"
             icon="baby-face-outline"
             color={THEME.colorJanin}
-            onPress={() => handlePress('janin')}
+            onPress={() => handlePress("/partograf/:id/catatan/kondisi-janin")}
           />
 
-          {/* 3. KONDISI IBU */}
           <DashboardButton
             title="Kondisi Ibu"
             subtitle="Nadi, Tensi, Suhu, Urin"
             icon="mother-heart"
             color={THEME.colorIbu}
-            onPress={() => handlePress('ibu')}
+            onPress={() => handlePress("/partograf/:id/catatan/kondisi-ibu")}
           />
 
-          {/* 4. OBAT & CAIRAN */}
           <DashboardButton
             title="Obat & Cairan"
             subtitle="Oksitosin, Cairan Infus"
             icon="pill"
             color={THEME.colorObat}
-            onPress={() => handlePress('obat')}
+            onPress={() =>
+              handlePress("/partograf/:id/catatan/obat-dan-cairan")
+            }
           />
         </View>
       </ScrollView>
@@ -129,7 +133,6 @@ const HasilInputPartograf = () => {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: THEME.bg },
 
-  // APP BAR
   appBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -141,14 +144,9 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   backBtn: { marginRight: 16 },
-  appBarTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: THEME.textMain,
-  },
+  appBarTitle: { fontSize: 18, fontWeight: "700", color: THEME.textMain },
 
   contentContainer: { padding: 20 },
-  
   sectionHeader: {
     fontSize: 12,
     fontWeight: "700",
@@ -158,16 +156,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1
   },
 
-  // GRID SYSTEM
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between"
   },
 
-  // BUTTON STYLES (Sesuai Referensi)
   dashBtn: {
-    width: "48%", // 2 Kolom
+    width: "48%",
     backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 16,
@@ -180,7 +176,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     height: 160,
     justifyContent: "space-between",
-    position: 'relative'
+    position: "relative"
   },
   iconCircle: {
     width: 56,
@@ -190,26 +186,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12
   },
-  btnContent: {
-    flex: 1,
-    justifyContent: "flex-end"
-  },
+  btnContent: { flex: 1, justifyContent: "flex-end" },
   btnTitle: {
     fontSize: 15,
     fontWeight: "700",
     color: THEME.textMain,
     marginBottom: 4
   },
-  btnSubtitle: {
-    fontSize: 11,
-    color: THEME.textSec
-  },
-  arrowIcon: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    opacity: 0.5
-  }
+  btnSubtitle: { fontSize: 11, color: THEME.textSec },
+  arrowIcon: { position: "absolute", top: 12, right: 12, opacity: 0.5 }
 });
 
 export default HasilInputPartograf;

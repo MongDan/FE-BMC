@@ -14,6 +14,10 @@ import MonitorKontraksi from "./page/MonitorKontraksi/MonitorKontraksi";
 import Per30MenitPage from "./page/CardMenitJam/Per30Menit";
 import Per4JamPage from "./page/CardMenitJam/Per4jam";
 import HasilInputPartograf from "./page/HasilInputPartograf/HasilInputPartograf";
+import KemajuanPersalinan from "./page/HasilInputPartograf/KemajuanPersalinan";
+import KondisiIbu from "./page/HasilInputPartograf/KondisiIbu";
+import ObatDanCairan from "./page/HasilInputPartograf/ObatDanCairan";
+import KondisiJanin from "./page/HasilInputPartograf/KondisiJanin";
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -37,11 +41,12 @@ export default function App() {
           <Route path="/" element={<LoginScreen />} />
           <Route path="/home" element={<HomeScreen />} />
 
-          <Route path="/home-catatan" element={<HomeCatatanPartograf />} />
+          <Route path="/home-catatan/:id" element={<HomeCatatanPartograf />} />
           <Route
-            path="/partograf/:id/kontraksi"
+            path="/monitor-kontraksi/:catatanPartografId/:partografId"
             element={<MonitorKontraksi />}
           />
+
           <Route path="/partograf/:id/catatan" element={<CatatanPartograf />} />
           <Route
             path="/partograf/:id/catatan/per30"
@@ -54,6 +59,22 @@ export default function App() {
           <Route
             path="/partograf/:id/hasil-input"
             element={<HasilInputPartograf />}
+          />
+          <Route
+            path="/partograf/:id/catatan/kemajuan-persalinan"
+            element={<KemajuanPersalinan />}
+          />
+          <Route
+            path="/partograf/:id/catatan/kondisi-ibu"
+            element={<KondisiIbu />}
+          />
+          <Route
+            path="/partograf/:id/catatan/kondisi-janin"
+            element={<KondisiJanin />}
+          />
+          <Route
+            path="/partograf/:id/catatan/obat-dan-cairan"
+            element={<ObatDanCairan />}
           />
         </Routes>
       </NativeRouter>

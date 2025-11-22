@@ -20,6 +20,7 @@ import {
 } from "@expo/vector-icons";
 import { useNavigate, useLocation } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useParams } from "react-router";
 
 // ======================= MEDICAL THEME ==========================
 const THEME = {
@@ -54,8 +55,7 @@ const formatTime = (ms) => {
 // =======================================================
 const MonitorKontraksi = () => {
   const navigate = useNavigate();
-  const { state } = useLocation();
-  const catatanPartografId = state?.catatanPartografId;
+  const { catatanPartografId, partografId } = useParams();
 
   const [isRunning, setIsRunning] = useState(false);
   const [time, setTime] = useState(0);
@@ -259,7 +259,10 @@ const MonitorKontraksi = () => {
 
       {/* Header */}
       <View style={styles.appBar}>
-        <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigate(`/home-catatan/${partografId}`)}
+          style={styles.backBtn}
+        >
           <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>Monitor Kontraksi</Text>
