@@ -18,6 +18,7 @@ import KemajuanPersalinan from "./page/HasilInputPartograf/KemajuanPersalinan";
 import KondisiIbu from "./page/HasilInputPartograf/KondisiIbu";
 import ObatDanCairan from "./page/HasilInputPartograf/ObatDanCairan";
 import KondisiJanin from "./page/HasilInputPartograf/KondisiJanin";
+import PartografView from "./page/View/PartografView";
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +49,8 @@ export default function App() {
             path="/monitor-kontraksi/:catatanPartografId/:partografId"
             element={<MonitorKontraksi />}
           />
+
+          <Route path="/partograf-chart" element={<PartografView />} />
 
           {/* === ROUTE BARU (MODE BEBAS/DRAFT) === */}
           {/* Hanya butuh partografId pasien, tanpa catatanId */}
