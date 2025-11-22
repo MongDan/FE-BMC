@@ -87,14 +87,19 @@ const DashboardButton = ({
 const HomeCatatanPartograf = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+
   const [partografId, setPartografId] = useState(location.state?.partografId);
-  const [name, setName] = useState(location.state?.name);
+  const [name, setName] = useState(location.state?.name || "Pasien");
+  const [noReg, setNoReg] = useState(location.state?.noReg);
+
   const [catatanPartografId, setCatatanPartografId] = useState(null);
   const [isCheckingId, setIsCheckingId] = useState(true);
 
   useEffect(() => {
     if (location.state) {
       setPartografId(location.state.partografId);
+      setNoReg(location.state.noReg);
       setName(location.state.name);
     }
   }, [location.state]);
@@ -125,6 +130,19 @@ const HomeCatatanPartograf = () => {
     } else {
       // Mode Draft (Belum ada ID Catatan)
       navigate(`/monitor-kontraksi-draft/${partografId}`);
+    }
+  };
+
+  const handleGrafikPress = () => {
+    if (partografId && noReg) {
+      navigate("/partograf-chart", {
+        state: { partografId, noReg }, // Kirim data ke Webview
+      });
+    } else {
+      Alert.alert(
+        "Data Kurang",
+        "Nomor Registrasi tidak ditemukan. Silakan kembali ke Home."
+      );
     }
   };
 
@@ -241,6 +259,14 @@ const HomeCatatanPartograf = () => {
                 state: { partografId, catatanPartografId }
               })
             }
+          />
+
+          <DashboardButton
+            title="Grafik Digital"
+            subtitle="Visualisasi Web"
+            icon="chart-timeline-variant" // Icon garis grafik
+            color="#C2185B" // Warna Pink Tua / Merah agar beda
+            onPress={handleGrafikPress}
           />
 
           <DashboardButton
