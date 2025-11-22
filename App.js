@@ -44,8 +44,17 @@ export default function App() {
           <Route path="/home" element={<HomeScreen />} />
 
           <Route path="/home-catatan/:id" element={<HomeCatatanPartograf />} />
+
+          {/* ROUTE LAMA (Tetap ada untuk edit/lihat history) */}
           <Route
             path="/monitor-kontraksi/:catatanPartografId/:partografId"
+            element={<MonitorKontraksi />}
+          />
+
+          {/* === ROUTE BARU (MODE BEBAS/DRAFT) === */}
+          {/* Hanya butuh partografId pasien, tanpa catatanId */}
+          <Route
+            path="/monitor-kontraksi-draft/:partografId"
             element={<MonitorKontraksi />}
           />
 

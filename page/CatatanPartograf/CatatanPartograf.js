@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Pressable
+  Pressable,
 } from "react-native";
 import { useParams, useNavigate, useLocation } from "react-router-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,7 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Ionicons,
   MaterialIcons,
-  MaterialCommunityIcons
+  MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
@@ -33,7 +33,7 @@ const THEME = {
   border: "#ECEFF1",
   inputBg: "#FAFAFA",
   activeInput: "#0277BD",
-  placeholder: "#B0BEC5"
+  placeholder: "#B0BEC5",
 };
 
 // ------------------ COMPONENT: FORM INPUT ------------------
@@ -45,7 +45,7 @@ function FormInput({
   placeholder,
   keyboardType = "default",
   suffix,
-  isDateTime = false
+  isDateTime = false,
 }) {
   const [showPicker, setShowPicker] = useState(false);
 
@@ -121,7 +121,7 @@ function Picker({ label, value, onChangeValue, options }) {
               style={({ pressed }) => [
                 styles.chip,
                 isActive && styles.chipActive,
-                pressed && !isActive && { backgroundColor: "#E0E0E0" }
+                pressed && !isActive && { backgroundColor: "#E0E0E0" },
               ]}
             >
               {isActive && (
@@ -162,16 +162,67 @@ function Card({ title, icon, iconColor, children }) {
 
 // ------------------ MAIN COMPONENT ------------------
 export default function CatatanPartograf() {
-  const { id } = useParams();
+  const { id } = useParams(); // Ini partografId
   const navigate = useNavigate();
   const location = useLocation();
   const noRegis = location.state?.noRegis ?? id;
   const [isLoading, setIsLoading] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false); // State untuk cek draft
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
     StatusBar.setBackgroundColor("#FFF");
   }, []);
+
+  // --- CEK DRAFT KONTRAKSI ---
+  useEffect(() => {
+    const checkDraft = async () => {
+      const draftKey = `kontraksi_draft_${id}`;
+      const draftData = await AsyncStorage.getItem(draftKey);
+      if (draftData && JSON.parse(draftData).length > 0) {
+        setHasDraft(true);
+      }
+    };
+    checkDraft();
+  }, [id]);
+
+  // --- FUNGSI SYNC DRAFT ---
+  const syncDraftKontraksi = async (newCatatanId, token) => {
+    const draftKey = `kontraksi_draft_${id}`;
+    try {
+      const draftStr = await AsyncStorage.getItem(draftKey);
+      if (!draftStr) return;
+
+      const drafts = JSON.parse(draftStr);
+      console.log(`Syncing ${drafts.length} drafts...`);
+
+      // Upload satu per satu
+      for (const item of drafts) {
+        await fetch(
+          `https://restful-api-bmc-production.up.railway.app/api/catatan-partograf/${newCatatanId}/kontraksi`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              waktu_mulai: item.waktu_mulai,
+              waktu_selesai: item.waktu_selesai,
+            }),
+          }
+        );
+      }
+
+      // Hapus draft setelah sukses
+      await AsyncStorage.removeItem(draftKey);
+      setHasDraft(false);
+      console.log("Sync selesai!");
+    } catch (e) {
+      console.error("Sync gagal", e);
+      Alert.alert("Info", "Gagal sinkronisasi kontraksi offline.");
+    }
+  };
 
   const emptyForm = {
     partograf_id: id,
@@ -188,7 +239,7 @@ export default function CatatanPartograf() {
     volume_urine: "",
     obat_cairan: "",
     air_ketuban: "",
-    molase: ""
+    molase: "",
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -225,9 +276,9 @@ export default function CatatanPartograf() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${userToken}`,
-            Accept: "application/json"
+            Accept: "application/json",
           },
-          body: JSON.stringify(form)
+          body: JSON.stringify(form),
         }
       );
 
@@ -237,11 +288,28 @@ export default function CatatanPartograf() {
       const newCatatanId = json.data?.id;
       if (newCatatanId) {
         await AsyncStorage.setItem(`catatanId_${id}`, newCatatanId.toString());
+
+        // === SYNC DRAFT OTOMATIS ===
+        if (hasDraft) {
+          await syncDraftKontraksi(newCatatanId, userToken);
+        }
       }
 
-      Alert.alert("Berhasil", "Catatan Partograf berhasil disimpan.", [
-        { text: "OK", onPress: () => navigate(-1) }
-      ]);
+      Alert.alert(
+        "Berhasil",
+        "Catatan Partograf berhasil disimpan. Lanjut ke Monitor Kontraksi?",
+        [
+          {
+            text: "Nanti Saja",
+            onPress: () => navigate(-1), // Kembali ke menu sebelumnya
+            style: "cancel",
+          },
+          {
+            text: "Ya, Buka Monitor",
+            onPress: () => navigate(`/monitor-kontraksi/${newCatatanId}/${id}`),
+          },
+        ]
+      );
     } catch (error) {
       Alert.alert("Gagal", error.message);
     } finally {
@@ -276,12 +344,34 @@ export default function CatatanPartograf() {
           contentContainerStyle={styles.contentArea}
           showsVerticalScrollIndicator={false}
         >
+          {/* Notifikasi Draft */}
+          {hasDraft && (
+            <View style={styles.draftBadge}>
+              <MaterialCommunityIcons
+                name="cloud-upload"
+                size={16}
+                color="#E65100"
+              />
+              <Text style={styles.draftText}>
+                Ada data kontraksi offline. Simpan data ini untuk mengupload.
+              </Text>
+            </View>
+          )}
+
           {/* CARD: Vital Signs */}
           <Card
             title="Tanda Vital & Fisik"
             icon="heart-pulse"
             iconColor="#E53935"
           >
+            <FormInput
+              label="Waktu Catat"
+              name="waktu_catat"
+              value={form.waktu_catat}
+              placeholder="YYYY-MM-DD HH:MM:SS"
+              onChange={handleChange}
+              isDateTime={true}
+            />
             <Picker
               label="Pembukaan Servik (cm)"
               value={form.pembukaan_servik}
@@ -359,7 +449,7 @@ export default function CatatanPartograf() {
               onChangeValue={(v) => handleChange("protein", v)}
               options={["-", "+", "++", "+++"].map((v) => ({
                 label: v,
-                value: v
+                value: v,
               }))}
             />
             <FormInput
@@ -391,7 +481,7 @@ export default function CatatanPartograf() {
                 { label: "Ketuban Belum Pecah (U)", value: "U" },
                 { label: "Mekonium (M)", value: "M" },
                 { label: "Darah (D)", value: "D" },
-                { label: "Kering (K)", value: "K" }
+                { label: "Kering (K)", value: "K" },
               ]}
             />
             <Picker
@@ -399,15 +489,6 @@ export default function CatatanPartograf() {
               value={form.molase}
               onChangeValue={(v) => handleChange("molase", v)}
               options={["0", "1", "2", "3"]}
-            />
-            {/* ===== FIELD WAKTU CATAT DENGAN DATE TIME PICKER ===== */}
-            <FormInput
-              label="Waktu Catat"
-              name="waktu_catat"
-              value={form.waktu_catat}
-              placeholder="YYYY-MM-DD HH:MM:SS"
-              onChange={handleChange}
-              isDateTime={true}
             />
           </Card>
 
@@ -426,7 +507,7 @@ export default function CatatanPartograf() {
                   color="#FFF"
                   style={{ marginRight: 8 }}
                 />
-                <Text style={styles.submitText}>SIMPAN DATA</Text>
+                <Text style={styles.submitText}>SIMPAN & SYNC</Text>
               </>
             )}
           </Pressable>
@@ -448,7 +529,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: THEME.border
+    borderBottomColor: THEME.border,
   },
   backBtn: { marginRight: 16, padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
@@ -463,14 +544,14 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
-    elevation: 2
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#FAFAFA"
+    borderBottomColor: "#FAFAFA",
   },
   iconBox: {
     width: 32,
@@ -478,7 +559,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12
+    marginRight: 12,
   },
   cardTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
   cardBody: { padding: 16 },
@@ -487,7 +568,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: THEME.textSec,
-    marginBottom: 6
+    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: "row",
@@ -496,14 +577,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.border,
     borderRadius: 8,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   inputField: { flex: 1, fontSize: 15, color: THEME.textMain },
   inputSuffix: {
     fontSize: 12,
     color: THEME.textSec,
     fontWeight: "600",
-    marginLeft: 8
+    marginLeft: 8,
   },
   chipContainer: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
@@ -518,11 +599,11 @@ const styles = StyleSheet.create({
     borderColor: THEME.border,
     borderRadius: 8,
     marginRight: 8,
-    marginBottom: 8
+    marginBottom: 8,
   },
   chipActive: {
     backgroundColor: THEME.primary,
-    borderColor: THEME.primary
+    borderColor: THEME.primary,
   },
   chipText: { fontSize: 14, color: THEME.textSec, fontWeight: "600" },
   chipTextActive: { color: "#FFF", fontWeight: "600" },
@@ -537,12 +618,23 @@ const styles = StyleSheet.create({
     shadowColor: THEME.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    elevation: 4
+    elevation: 4,
   },
   submitText: {
     color: "#FFF",
     fontSize: 16,
     fontWeight: "bold",
-    letterSpacing: 1
-  }
+    letterSpacing: 1,
+  },
+  draftBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3E0",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#FFE0B2",
+  },
+  draftText: { color: "#E65100", fontSize: 11, marginLeft: 8, flex: 1 },
 });

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Alert
+  Alert,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,7 +24,7 @@ const THEME = {
   colorPersalinan: "#8E24AA",
   colorJanin: "#00897B",
   colorIbu: "#E53935",
-  colorObat: "#F57C00"
+  colorObat: "#F57C00",
 };
 
 // ------------------ DASHBOARD BUTTON ------------------
@@ -56,10 +56,11 @@ const DashboardButton = ({ title, subtitle, icon, color, onPress }) => (
 const HasilInputPartograf = () => {
   const { id } = useParams();
   const location = useLocation();
+  // Pastikan partografId terisi, prioritas dari state, fallback ke params id
   const partografId = location.state?.partografId || id;
   const navigate = useNavigate();
 
-  // Fungsi navigasi
+  // Fungsi navigasi menu
   const handlePress = (to) => {
     if (!partografId) {
       Alert.alert("Error", "Id Partograf tidak ditemukan.");
@@ -67,6 +68,7 @@ const HasilInputPartograf = () => {
     }
 
     const finalPath = to.replace(":id", partografId);
+    // Selalu bawa state partografId saat navigasi maju
     navigate(finalPath, { state: { partografId } });
   };
 
@@ -77,7 +79,11 @@ const HasilInputPartograf = () => {
       {/* APP BAR */}
       <View style={styles.appBar}>
         <TouchableOpacity
-          onPress={() => navigate(`/home-catatan/${id}`)}
+          // FIX: Tambahkan STATE saat back, biar Dashboard gak N/A
+          // Pastikan path '/home-catatan/' ini benar sesuai router abang
+          onPress={() =>
+            navigate(`/home-catatan/${id}`, { state: { partografId: id } })
+          }
           style={styles.backBtn}
         >
           <Ionicons name="arrow-back" size={24} color={THEME.textMain} />
@@ -141,7 +147,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
-    elevation: 2
+    elevation: 2,
   },
   backBtn: { marginRight: 16 },
   appBarTitle: { fontSize: 18, fontWeight: "700", color: THEME.textMain },
@@ -153,13 +159,13 @@ const styles = StyleSheet.create({
     color: "#90A4AE",
     marginBottom: 12,
     marginLeft: 4,
-    letterSpacing: 1
+    letterSpacing: 1,
   },
 
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
   },
 
   dashBtn: {
@@ -176,7 +182,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     height: 160,
     justifyContent: "space-between",
-    position: "relative"
+    position: "relative",
   },
   iconCircle: {
     width: 56,
@@ -184,17 +190,17 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12
+    marginBottom: 12,
   },
   btnContent: { flex: 1, justifyContent: "flex-end" },
   btnTitle: {
     fontSize: 15,
     fontWeight: "700",
     color: THEME.textMain,
-    marginBottom: 4
+    marginBottom: 4,
   },
   btnSubtitle: { fontSize: 11, color: THEME.textSec },
-  arrowIcon: { position: "absolute", top: 12, right: 12, opacity: 0.5 }
+  arrowIcon: { position: "absolute", top: 12, right: 12, opacity: 0.5 },
 });
 
 export default HasilInputPartograf;
