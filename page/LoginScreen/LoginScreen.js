@@ -9,7 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigate } from "react-router-native";
@@ -89,15 +90,25 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {showSuccess && (
+      {/* GANTI BAGIAN showSuccess LAMA DENGAN INI */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSuccess}
+        onRequestClose={() => {}}
+      >
         <View style={styles.successOverlay}>
           <View style={styles.successBox}>
-            <FontAwesome name="check-circle" size={55} color="#4CAF50" />
-            <Text style={styles.successTitle}>Login Berhasil</Text>
+            <View style={styles.iconCircle}>
+              <FontAwesome name="check" size={40} color="#4CAF50" />
+            </View>
+            <Text style={styles.successTitle}>Login Berhasil!</Text>
+            <Text style={styles.successSubtitle}>
+              Mengalihkan ke beranda...
+            </Text>
           </View>
         </View>
-      )}
-
+      </Modal>
       <View style={styles.header}>
         <Image source={require("../../assets/Logo.png")} style={styles.logo} />
         <View style={styles.textBlock}>
@@ -184,34 +195,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F9F6F2",
     alignItems: "center",
-    justifyContent: "flex-end"
+    justifyContent: "flex-end",
   },
 
   successOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)", // Latar belakang lebih gelap sedikit agar fokus
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 999
   },
   successBox: {
-    width: 260,
+    width: "80%",
     backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 25,
+    borderRadius: 24, // Sudut lebih bulat (modern style)
+    paddingVertical: 40,
     paddingHorizontal: 20,
     alignItems: "center",
-    elevation: 8
+    // Shadow untuk iOS
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    // Shadow untuk Android
+    elevation: 10,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    backgroundColor: "#E8F5E9", // Hijau sangat muda (soft)
+    borderRadius: 40, // Lingkaran penuh
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
   },
   successTitle: {
-    marginTop: 10,
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333"
+    fontSize: 22,
+    fontWeight: "700", // Lebih tebal
+    color: "#333",
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: "#888", // Warna abu-abu soft
+    textAlign: "center",
   },
 
   header: {
@@ -220,13 +249,13 @@ const styles = StyleSheet.create({
     marginTop: 50,
     marginLeft: 20,
     marginBottom: 10,
-    alignSelf: "flex-start"
+    alignSelf: "flex-start",
   },
   logo: {
     width: 55,
     height: 55,
     resizeMode: "contain",
-    marginRight: 6
+    marginRight: 6,
   },
   textBlock: { flexDirection: "column" },
   title: { fontSize: 22, fontWeight: "bold", color: "#000" },
@@ -237,18 +266,18 @@ const styles = StyleSheet.create({
     top: 100,
     left: 0,
     right: 0,
-    alignItems: "center"
+    alignItems: "center",
   },
   doctorImage: {
     width: "100%",
     height: 500,
-    resizeMode: "contain"
+    resizeMode: "contain",
   },
 
   scrollContent: {
     flexGrow: 1,
     justifyContent: "flex-end",
-    width: "100%"
+    width: "100%",
   },
   loginCard: {
     backgroundColor: "rgba(255, 255, 255, 0.92)",
@@ -258,14 +287,14 @@ const styles = StyleSheet.create({
     paddingVertical: 70,
     paddingHorizontal: 25,
     alignItems: "center",
-    elevation: 4
+    elevation: 4,
   },
   loginTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#000",
     marginBottom: 10,
-    marginTop: -30
+    marginTop: -30,
   },
 
   label: {
@@ -273,7 +302,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: -10,
     fontSize: 14,
-    color: "#000"
+    color: "#000",
   },
 
   inputContainer: {
@@ -284,12 +313,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginTop: 20,
     width: "97%",
-    height: 45
+    height: 45,
   },
   input: {
     flex: 1,
     color: "#fff",
-    fontSize: 14
+    fontSize: 14,
   },
   icon: { marginLeft: 10 },
 
@@ -298,11 +327,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingVertical: 10,
     paddingHorizontal: 45,
-    marginTop: 20
+    marginTop: 20,
   },
   loginButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold"
-  }
+    fontWeight: "bold",
+  },
 });
