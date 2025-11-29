@@ -88,7 +88,6 @@ const HomeCatatanPartograf = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-
   const [partografId, setPartografId] = useState(location.state?.partografId);
   const [name, setName] = useState(location.state?.name || "Pasien");
   const [noReg, setNoReg] = useState(location.state?.noReg);
@@ -104,16 +103,78 @@ const HomeCatatanPartograf = () => {
     }
   }, [location.state]);
 
+  // useEffect(() => {
+  //   const loadCatatanId = async () => {
+  //     setIsCheckingId(true);
+  //     if (partografId) {
+  //       const saved = await AsyncStorage.getItem(`catatanId_${partografId}`);
+  //       if (saved) setCatatanPartografId(saved);
+  //     }
+  //     setIsCheckingId(false);
+  //   };
+  //   loadCatatanId();
+  // }, [partografId]);
+
+  // Di dalam HomeCatatanPartograf.js
+
   useEffect(() => {
-    const loadCatatanId = async () => {
+    const fetchStatusDariServer = async () => {
+      if (!partografId) return; // Cek partografId
+
       setIsCheckingId(true);
-      if (partografId) {
-        const saved = await AsyncStorage.getItem(`catatanId_${partografId}`);
-        if (saved) setCatatanPartografId(saved);
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+
+        // Fetch ke API yang mengembalikan LIST catatan
+        const response = await fetch(
+          `https://restful-api-bmc-production.up.railway.app/api/partograf/${partografId}/catatan`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const json = await response.json();
+
+        // LOGIC PENTING: Menghandle Array
+        if (
+          response.ok &&
+          json.data &&
+          Array.isArray(json.data) &&
+          json.data.length > 0
+        ) {
+          // 1. Urutkan data berdasarkan waktu_catat (Terbaru paling atas)
+          // Supaya kita ambil sesi terakhir
+          const sortedData = json.data.sort((a, b) => {
+            return new Date(b.waktu_catat) - new Date(a.waktu_catat);
+          });
+
+          // 2. Ambil ID dari data paling atas (Terbaru)
+          const latestRecord = sortedData[0];
+
+          // Set ID ini agar tombol Kontraksi mengarah ke sesi terakhir ini
+          setCatatanPartografId(latestRecord.id);
+
+          // Opsional: Simpan ke storage untuk backup (cache)
+          await AsyncStorage.setItem(
+            `catatanId_${partografId}`,
+            latestRecord.id
+          );
+        } else {
+          // Jika data array kosong [], berarti belum ada catatan sama sekali
+          setCatatanPartografId(null);
+        }
+      } catch (error) {
+        console.log("Error fetch:", error);
+      } finally {
+        setIsCheckingId(false);
       }
-      setIsCheckingId(false);
     };
-    loadCatatanId();
+
+    fetchStatusDariServer();
   }, [partografId]);
 
   // -- HANDLERS --
@@ -173,19 +234,19 @@ const HomeCatatanPartograf = () => {
             <View
               style={[
                 styles.statusBadge,
-                { backgroundColor: hasData ? "#E8F5E9" : "#FFEBEE" }
+                { backgroundColor: hasData ? "#E8F5E9" : "#FFEBEE" },
               ]}
             >
               <View
                 style={[
                   styles.statusDot,
-                  { backgroundColor: hasData ? "#2E7D32" : "#C62828" }
+                  { backgroundColor: hasData ? "#2E7D32" : "#C62828" },
                 ]}
               />
               <Text
                 style={[
                   styles.statusText,
-                  { color: hasData ? "#2E7D32" : "#C62828" }
+                  { color: hasData ? "#2E7D32" : "#C62828" },
                 ]}
               >
                 {hasData ? "AKTIF" : "PENDING"}
@@ -240,7 +301,7 @@ const HomeCatatanPartograf = () => {
             color={THEME.menu30}
             onPress={() =>
               navigate(`/partograf/${partografId}/catatan/per30`, {
-                state: { partografId, catatanPartografId }
+                state: { partografId, catatanPartografId },
               })
             }
             // disabled={!hasData} <-- Opsional: Tetap disable atau buka tapi mode draft juga?
@@ -256,7 +317,7 @@ const HomeCatatanPartograf = () => {
             color={THEME.menu4h}
             onPress={() =>
               navigate(`/partograf/${partografId}/catatan/per4jam`, {
-                state: { partografId, catatanPartografId }
+                state: { partografId, catatanPartografId },
               })
             }
           />
@@ -276,7 +337,7 @@ const HomeCatatanPartograf = () => {
             color="#6A1B9A"
             onPress={() =>
               navigate(`/partograf/${partografId}/hasil-input`, {
-                state: { partografId }
+                state: { partografId },
               })
             }
             disabled={!hasData}

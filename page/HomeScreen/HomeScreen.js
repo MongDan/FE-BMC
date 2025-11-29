@@ -10,20 +10,25 @@ import {
   Modal,
   ActivityIndicator,
   StatusBar,
-  Platform
+  Platform,
+  Switch,
+  Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 // Menggunakan FontAwesome5 untuk ikon medis yang lebih lengkap
 import {
   Ionicons,
   MaterialIcons,
   MaterialCommunityIcons,
-  FontAwesome5
+  FontAwesome5,
 } from "@expo/vector-icons";
 import TambahPasienForm from "./TambahPasienForm";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProfileScreen from "../ProfileScreen/ProfileScreen";
 import { useNavigate } from "react-router-native";
+// IMPORT DATE PICKER
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 // ======================= MEDICAL THEME COLORS ==========================
 const THEME = {
@@ -38,28 +43,45 @@ const THEME = {
   active: "#29B6F6",
   inactive: "#BDBDBD",
   done: "#66BB6A",
-  referral: "#FFA726"
+  referral: "#FFA726",
 };
 
-// Utilitas Format
+// Utilitas Format Tampilan (User Friendly)
 const formatNoReg = (noReg) => {
   if (!noReg) return "";
   return noReg.toString().replace(".00", "");
 };
 
-const formatDatetime = (datetime) => {
-  if (!datetime) return "-";
-  const date = new Date(datetime);
-  return `${date.getDate()} ${date.toLocaleString("id-ID", {
-    month: "short"
-  })} ${date.getFullYear()}, ${date.getHours()}:${date
-    .getMinutes()
+const formatDatetimeDisplay = (dateObj) => {
+  if (!dateObj) return "-";
+  return `${dateObj.getDate()} ${dateObj.toLocaleString("id-ID", {
+    month: "short",
+  })} ${dateObj.getFullYear()}, ${dateObj
+    .getHours()
     .toString()
-    .padStart(2, "0")}`;
+    .padStart(2, "0")}:${dateObj.getMinutes().toString().padStart(2, "0")}`;
+};
+
+// Utilitas Format API (YYYY-MM-DD HH:mm:ss)
+const formatDatetimeAPI = (dateObj) => {
+  if (!dateObj) return null;
+  const pad = (num) => num.toString().padStart(2, "0");
+  return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(
+    dateObj.getDate()
+  )} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(
+    dateObj.getSeconds()
+  )}`;
+};
+
+const parseDateString = (dateString) => {
+  if (!dateString) return new Date();
+  // Handle format SQL timestamp standar atau ISO
+  const d = new Date(dateString);
+  return isNaN(d.getTime()) ? new Date() : d;
 };
 
 // ------------------ COMPONENT: PATIENT CARD (Kartu Rekam Medis) ------------------
-const PasienCard = ({ pasien, onPress }) => {
+const PasienCard = ({ pasien, onPress, onStatusPress }) => {
   const status = pasien.persalinan?.status || "tidak diketahui";
 
   const getStatusConfig = () => {
@@ -70,30 +92,36 @@ const PasienCard = ({ pasien, onPress }) => {
         return {
           color: THEME.inactive,
           label: "Non-Aktif",
-          icon: "bed-outline"
+          icon: "bed-outline",
         };
       case "selesai":
         return {
           color: THEME.done,
           label: "Selesai",
-          icon: "checkmark-circle-outline"
+          icon: "checkmark-circle-outline",
         };
       case "rujukan":
         return {
           color: THEME.referral,
           label: "Rujukan",
-          icon: "arrow-redo-outline"
+          icon: "arrow-redo-outline",
         };
       default:
         return {
           color: THEME.inactive,
           label: "Unknown",
-          icon: "help-circle-outline"
+          icon: "help-circle-outline",
         };
     }
   };
 
   const statusConfig = getStatusConfig();
+  const rawDateMules = pasien.persalinan?.tanggal_jam_mules
+    ? new Date(pasien.persalinan.tanggal_jam_mules)
+    : null;
+  const rawDateKetuban = pasien.persalinan?.tanggal_jam_ketuban_pecah
+    ? new Date(pasien.persalinan.tanggal_jam_ketuban_pecah)
+    : null;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -103,7 +131,7 @@ const PasienCard = ({ pasien, onPress }) => {
           <View
             style={[
               styles.avatarCircle,
-              { backgroundColor: THEME.primary + "15" }
+              { backgroundColor: THEME.primary + "15" },
             ]}
           >
             <Text style={[styles.avatarText, { color: THEME.primary }]}>
@@ -120,12 +148,13 @@ const PasienCard = ({ pasien, onPress }) => {
             </Text>
           </View>
 
-          {/* Status Badge */}
-          <View
+          {/* Status Badge (Clickable) */}
+          <TouchableOpacity
             style={[
               styles.statusBadge,
-              { backgroundColor: statusConfig.color + "15" }
+              { backgroundColor: statusConfig.color + "15" },
             ]}
+            onPress={onStatusPress}
           >
             <Ionicons
               name={statusConfig.icon}
@@ -136,20 +165,23 @@ const PasienCard = ({ pasien, onPress }) => {
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {statusConfig.label}
             </Text>
-          </View>
+            <MaterialIcons
+              name="edit"
+              size={10}
+              color={statusConfig.color}
+              style={{ marginLeft: 4 }}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.divider} />
 
         {/* Body Kartu: Detail Pasien */}
         <View style={styles.cardBody}>
-          {/* Baris 1: Umur & Alamat */}
           <View style={styles.infoRow}>
             <MaterialIcons name="cake" size={14} color={THEME.textSec} />
             <Text style={styles.infoText}>{pasien.umur} Th</Text>
-
             <Text style={styles.infoSeparator}>|</Text>
-
             <MaterialIcons name="location-on" size={14} color={THEME.textSec} />
             <Text style={[styles.infoText, { flex: 1 }]} numberOfLines={1}>
               {pasien.alamat}
@@ -157,9 +189,9 @@ const PasienCard = ({ pasien, onPress }) => {
           </View>
 
           {/* Baris 2: Data Klinis (Ketuban/Mules) jika ada */}
-          {(pasien.jam_ketuban_pecah || pasien.tgl_jam_mules) && (
+          {(rawDateKetuban || rawDateMules) && (
             <View style={styles.clinicalInfoContainer}>
-              {pasien.jam_ketuban_pecah && (
+              {pasien.persalinan?.ketuban_pecah == 1 && rawDateKetuban && (
                 <View style={styles.clinicalItem}>
                   <MaterialCommunityIcons
                     name="water-outline"
@@ -168,11 +200,11 @@ const PasienCard = ({ pasien, onPress }) => {
                   />
                   <Text style={styles.clinicalLabel}>Ketuban:</Text>
                   <Text style={styles.clinicalValue}>
-                    {formatDatetime(pasien.jam_ketuban_pecah)}
+                    {formatDatetimeDisplay(rawDateKetuban)}
                   </Text>
                 </View>
               )}
-              {pasien.tgl_jam_mules && (
+              {rawDateMules && (
                 <View style={styles.clinicalItem}>
                   <MaterialCommunityIcons
                     name="clock-time-four-outline"
@@ -181,7 +213,7 @@ const PasienCard = ({ pasien, onPress }) => {
                   />
                   <Text style={styles.clinicalLabel}>Mules:</Text>
                   <Text style={styles.clinicalValue}>
-                    {formatDatetime(pasien.tgl_jam_mules)}
+                    {formatDatetimeDisplay(rawDateMules)}
                   </Text>
                 </View>
               )}
@@ -193,14 +225,331 @@ const PasienCard = ({ pasien, onPress }) => {
   );
 };
 
-// Placeholder EdukasiScreen (ganti dengan implementasi sebenarnya jika ada)
-const EdukasiScreen = () => (
-  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-    <Text style={{ color: THEME.textSec }}>
-      Halaman Edukasi (posting bidan)
-    </Text>
-  </View>
-);
+// ======================= MODAL UPDATE STATUS (UI/UX OPTIMIZED + DATEPICKER) ==========================
+const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
+  const [status, setStatus] = useState("aktif");
+  const [loading, setLoading] = useState(false);
+
+  // Menggunakan Object Date untuk state agar kompatibel dengan DateTimePicker
+  const [tglRawat, setTglRawat] = useState(new Date());
+  const [tglMules, setTglMules] = useState(new Date());
+  const [ketubanPecah, setKetubanPecah] = useState(false);
+  const [tglKetuban, setTglKetuban] = useState(new Date());
+  const [tglLahir, setTglLahir] = useState(new Date());
+
+  // Picker Configuration
+  const [picker, setPicker] = useState({
+    show: false,
+    mode: "date",
+    field: null,
+  });
+
+  // Reset state & pre-fill data ketika modal dibuka
+  useEffect(() => {
+    if (pasien && visible) {
+      const p = pasien.persalinan || {};
+      setStatus(p.status || "aktif");
+
+      setTglRawat(parseDateString(p.tanggal_jam_rawat));
+      setTglMules(parseDateString(p.tanggal_jam_mules));
+      setKetubanPecah(p.ketuban_pecah === true || p.ketuban_pecah === 1);
+      setTglKetuban(parseDateString(p.tanggal_jam_ketuban_pecah));
+      // Untuk tgl lahir default ke now karena biasanya baru diisi saat selesai
+      setTglLahir(
+        p.tanggal_jam_waktu_bayi_lahir
+          ? parseDateString(p.tanggal_jam_waktu_bayi_lahir)
+          : new Date()
+      );
+    }
+  }, [pasien, visible]);
+
+  const showDatePicker = (field, mode = "date") => {
+    setPicker({ show: true, mode, field });
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    const currentMode = picker.mode;
+
+    // Di Android, picker langsung close setelah select. Di iOS butuh tombol done (default behavior handled here broadly)
+    if (Platform.OS === "android") {
+      setPicker({ ...picker, show: false });
+    }
+
+    if (event.type === "dismissed") {
+      setPicker({ ...picker, show: false });
+      return;
+    }
+
+    if (selectedDate) {
+      // Update state berdasarkan field yang sedang diedit
+      switch (picker.field) {
+        case "rawat":
+          setTglRawat(selectedDate);
+          break;
+        case "mules":
+          setTglMules(selectedDate);
+          break;
+        case "ketuban":
+          setTglKetuban(selectedDate);
+          break;
+        case "lahir":
+          setTglLahir(selectedDate);
+          break;
+      }
+
+      // UX Helper: Jika selesai pilih tanggal, otomatis tawarkan pilih jam (opsional, tapi bagus untuk UX)
+      if (currentMode === "date" && Platform.OS === "android") {
+        setTimeout(() => {
+          setPicker({ show: true, mode: "time", field: picker.field });
+        }, 100);
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    const persalinanId = pasien?.persalinan?.id;
+
+    let payload = {
+      status: status,
+      _method: "PUT",
+    };
+
+    if (status === "aktif") {
+      payload.tanggal_jam_rawat = formatDatetimeAPI(tglRawat);
+      payload.tanggal_jam_mules = formatDatetimeAPI(tglMules);
+      payload.ketuban_pecah = ketubanPecah ? 1 : 0;
+
+      if (ketubanPecah) {
+        payload.tanggal_jam_ketuban_pecah = formatDatetimeAPI(tglKetuban);
+      } else {
+        payload.tanggal_jam_ketuban_pecah = null;
+      }
+    } else if (status === "selesai") {
+      payload.tanggal_jam_waktu_bayi_lahir = formatDatetimeAPI(tglLahir);
+    }
+
+    try {
+      const response = await fetch(
+        `https://restful-api-bmc-production.up.railway.app/api/persalinan/${persalinanId}/status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Berhasil", "Status pasien berhasil diperbarui.");
+        onSuccess();
+        onClose();
+      } else {
+        Alert.alert(
+          "Gagal",
+          data.message || "Terjadi kesalahan saat update status."
+        );
+      }
+    } catch (error) {
+      console.log("Error Update Status:", error);
+      Alert.alert("Error", "Gagal terhubung ke server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const DateInputButton = ({ label, dateValue, fieldName }) => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <TouchableOpacity
+        style={styles.dateInputContainer}
+        onPress={() => showDatePicker(fieldName, "date")}
+      >
+        <Ionicons name="calendar-outline" size={20} color={THEME.primary} />
+        <Text style={styles.dateInputText}>
+          {formatDatetimeDisplay(dateValue)}
+        </Text>
+        <Ionicons
+          name="chevron-down"
+          size={16}
+          color={THEME.textSec}
+          style={{ marginLeft: "auto" }}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Update Status</Text>
+                <Text style={styles.modalSubtitle}>{pasien?.nama}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color={THEME.textSec} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={{ maxHeight: 400 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.sectionLabel}>PILIH STATUS BARU</Text>
+              <View style={styles.statusOptionsContainer}>
+                {["aktif", "tidak_aktif", "selesai", "rujukan"].map((item) => {
+                  let activeColor = THEME.primary;
+                  if (item === "selesai") activeColor = THEME.done;
+                  if (item === "rujukan") activeColor = THEME.referral;
+                  if (item === "tidak_aktif") activeColor = THEME.inactive;
+                  const isActive = status === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[
+                        styles.statusChip,
+                        isActive && {
+                          backgroundColor: activeColor,
+                          borderColor: activeColor,
+                        },
+                      ]}
+                      onPress={() => setStatus(item)}
+                    >
+                      <Text
+                        style={[
+                          styles.statusChipText,
+                          isActive && { color: "#FFF" },
+                        ]}
+                      >
+                        {item.replace("_", " ")}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.divider} />
+
+              {status === "aktif" && (
+                <View style={styles.dynamicForm}>
+                  <DateInputButton
+                    label="Waktu Rawat (Masuk)"
+                    dateValue={tglRawat}
+                    fieldName="rawat"
+                  />
+                  <DateInputButton
+                    label="Waktu Mulai Mules"
+                    dateValue={tglMules}
+                    fieldName="mules"
+                  />
+
+                  <View style={styles.switchRow}>
+                    <Text style={styles.inputLabel}>Ketuban Pecah?</Text>
+                    <Switch
+                      trackColor={{ false: "#767577", true: THEME.primary }}
+                      thumbColor={ketubanPecah ? "#FFF" : "#f4f3f4"}
+                      onValueChange={setKetubanPecah}
+                      value={ketubanPecah}
+                    />
+                  </View>
+
+                  {ketubanPecah && (
+                    <DateInputButton
+                      label="Waktu Ketuban Pecah"
+                      dateValue={tglKetuban}
+                      fieldName="ketuban"
+                    />
+                  )}
+                </View>
+              )}
+
+              {status === "selesai" && (
+                <View style={styles.dynamicForm}>
+                  <View
+                    style={[
+                      styles.infoBox,
+                      { backgroundColor: THEME.done + "20" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="information-circle"
+                      size={20}
+                      color={THEME.done}
+                    />
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        color: THEME.textMain,
+                        fontSize: 12,
+                        flex: 1,
+                      }}
+                    >
+                      Pastikan bayi sudah lahir.
+                    </Text>
+                  </View>
+                  <DateInputButton
+                    label="Waktu Bayi Lahir"
+                    dateValue={tglLahir}
+                    fieldName="lahir"
+                  />
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.saveButton, loading && { opacity: 0.7 }]}
+                onPress={handleSubmit}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Render DateTimePicker (Kondisional) */}
+            {picker.show && (
+              <DateTimePicker
+                value={
+                  picker.field === "rawat"
+                    ? tglRawat
+                    : picker.field === "mules"
+                    ? tglMules
+                    : picker.field === "ketuban"
+                    ? tglKetuban
+                    : tglLahir
+                }
+                mode={picker.mode}
+                is24Hour={true}
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+};
+
+// ... (Sisa kode PasienCard & HomeScreen sama seperti sebelumnya, pastikan pakai PasienCard & StatusUpdateModal di atas)
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -211,6 +560,10 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeScreen, setActiveScreen] = useState("home");
+
+  // State Modal Status
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedPasienForStatus, setSelectedPasienForStatus] = useState(null);
 
   const filteredPasienList = pasienList.filter((pasien) =>
     pasien.nama.toLowerCase().includes(searchQuery.toLowerCase())
@@ -226,8 +579,8 @@ export default function HomeScreen() {
           method: "GET",
           headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
       const data = await res.json();
@@ -250,7 +603,6 @@ export default function HomeScreen() {
           setIsLoading(false);
         }
       } catch (e) {
-        console.log("❌ ERROR LOAD:", e);
         setIsLoading(false);
       }
     };
@@ -259,6 +611,15 @@ export default function HomeScreen() {
 
   const handleFormSuccess = () => {
     setModalVisible(false);
+    fetchPasien(userToken);
+  };
+
+  const handleOpenStatusModal = (pasien) => {
+    setSelectedPasienForStatus(pasien);
+    setStatusModalVisible(true);
+  };
+
+  const handleStatusSuccess = () => {
     fetchPasien(userToken);
   };
 
@@ -289,11 +650,15 @@ export default function HomeScreen() {
         pasien={pasien}
         onPress={() =>
           navigate(`/home-catatan/${pasien.partograf_id}`, {
-            state: { partografId: pasien.partograf_id, name: pasien.nama, noReg: pasien.no_reg}
+            state: {
+              partografId: pasien.partograf_id,
+              name: pasien.nama,
+              noReg: pasien.no_reg,
+            },
           })
         }
+        onStatusPress={() => handleOpenStatusModal(pasien)}
       />
-      
     ));
   };
 
@@ -301,8 +666,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-
-        {/* HEADER: Logo & Nama Aplikasi + Profile Icon (kanan atas) */}
+        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Image
@@ -317,8 +681,6 @@ export default function HomeScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Profile Icon di kanan atas (ganti notifikasi) */}
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => setActiveScreen("profile")}
@@ -327,45 +689,34 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* KONTEN UTAMA */}
+        {/* KONTEN */}
         <View style={styles.contentContainer}>
           {activeScreen === "home" ? (
             <>
-              {/* Search Bar Modern */}
               <View style={styles.searchWrapper}>
                 <View style={styles.searchContainer}>
                   <Ionicons name="search" size={20} color={THEME.textSec} />
                   <TextInput
                     style={styles.searchInput}
-                    placeholder="Cari Pasien (Nama / No. RM)..."
+                    placeholder="Cari Pasien..."
                     placeholderTextColor={THEME.textSec}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                   />
                 </View>
               </View>
-
-              {/* List Pasien */}
               <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.sectionTitle}>DAFTAR PASIEN</Text>
                 {renderHomeContent()}
               </ScrollView>
             </>
-          ) : activeScreen === "profile" ? (
-            <ProfileScreen style={styles.profileArea} />
           ) : (
-            <EdukasiScreen />
+            <ProfileScreen />
           )}
         </View>
 
-        {/* TOMBOL CHAT MENGAMBANG (BUBBLE) */}
-        <TouchableOpacity style={styles.chatFab} activeOpacity={0.8}>
-          <MaterialIcons name="chat-bubble" size={24} color="white" />
-        </TouchableOpacity>
-
-        {/* BOTTOM NAVIGATION & TOMBOL TAMBAH */}
+        {/* BOTTOM NAV */}
         <View style={styles.bottomNav}>
-          {/* Tab Kiri: Home */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => setActiveScreen("home")}
@@ -378,14 +729,12 @@ export default function HomeScreen() {
             <Text
               style={[
                 styles.navText,
-                activeScreen === "home" && styles.navTextActive
+                activeScreen === "home" && styles.navTextActive,
               ]}
             >
               Beranda
             </Text>
           </TouchableOpacity>
-
-          {/* Tombol Tengah: Tambah Pasien (+) Besar */}
           <TouchableOpacity
             style={styles.addFab}
             onPress={() => setModalVisible(true)}
@@ -393,7 +742,6 @@ export default function HomeScreen() {
           >
             <Ionicons name="add" size={36} color="#FFF" />
           </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => navigate("/konten-edukasi")}
@@ -403,10 +751,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* MODAL TAMBAH PASIEN */}
+        {/* MODALS */}
         <Modal
           visible={modalVisible}
-          animationType="fade"
           transparent={true}
           onRequestClose={() => setModalVisible(false)}
         >
@@ -416,6 +763,14 @@ export default function HomeScreen() {
             token={userToken}
           />
         </Modal>
+
+        <StatusUpdateModal
+          visible={statusModalVisible}
+          onClose={() => setStatusModalVisible(false)}
+          onSuccess={handleStatusSuccess}
+          pasien={selectedPasienForStatus}
+          token={userToken}
+        />
       </View>
     </SafeAreaView>
   );
@@ -426,11 +781,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#FFF",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: { flex: 1, backgroundColor: THEME.bg },
-
-  // HEADER
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -441,9 +794,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
     elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05
   },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   logoImage: { width: 32, height: 32, marginRight: 8 },
@@ -452,17 +802,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: THEME.textMain,
-    lineHeight: 20
+    lineHeight: 20,
   },
-
   iconButton: { padding: 8 },
-
-  // Search bar
   searchWrapper: {
     backgroundColor: "#FFF",
     paddingHorizontal: 20,
     paddingBottom: 16,
-    paddingTop: 10
+    paddingTop: 10,
   },
   searchContainer: {
     flexDirection: "row",
@@ -472,28 +819,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 46,
     borderWidth: 1,
-    borderColor: THEME.border
+    borderColor: THEME.border,
   },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: THEME.textMain },
-
-  // CONTENT
   contentContainer: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 100 },
-  profileArea: { flex: 1, padding: 20 },
-
   sectionTitle: {
     fontSize: 12,
     fontWeight: "700",
     color: THEME.textSec,
     marginBottom: 12,
     letterSpacing: 1,
-    textTransform: "uppercase"
+    textTransform: "uppercase",
   },
   centerBox: { alignItems: "center", marginTop: 80 },
   loadingText: { marginTop: 16, color: THEME.textSec, fontSize: 14 },
   emptyText: { marginTop: 16, color: THEME.textSec, fontSize: 14 },
 
-  // CARD STYLES (MEDICAL)
+  // Card
   card: {
     backgroundColor: THEME.cardBg,
     borderRadius: 12,
@@ -503,14 +846,14 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    elevation: 2
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#FAFAFA"
+    borderBottomColor: "#FAFAFA",
   },
   avatarCircle: {
     width: 44,
@@ -518,7 +861,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12
+    marginRight: 12,
   },
   avatarText: { fontSize: 18, fontWeight: "bold" },
   headerInfo: { flex: 1 },
@@ -526,24 +869,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: THEME.textMain,
-    marginBottom: 2
+    marginBottom: 2,
   },
   cardReg: { fontSize: 12, color: THEME.textSec },
-
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8
+    borderRadius: 8,
   },
   statusText: { fontSize: 10, fontWeight: "bold", textTransform: "capitalize" },
-
   cardBody: { padding: 16, paddingTop: 12 },
   infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   infoText: { fontSize: 13, color: THEME.textSec, marginLeft: 6 },
   infoSeparator: { marginHorizontal: 10, color: THEME.border, fontSize: 14 },
-
   clinicalInfoContainer: {
     marginTop: 4,
     backgroundColor: "#F8F9FA",
@@ -551,38 +891,19 @@ const styles = StyleSheet.create({
     padding: 10,
     flexDirection: "row",
     justifyContent: "space-between",
-    flexWrap: "wrap"
+    flexWrap: "wrap",
   },
   clinicalItem: { flexDirection: "row", alignItems: "center", marginRight: 10 },
   clinicalLabel: {
     fontSize: 11,
     color: THEME.textSec,
     marginLeft: 6,
-    marginRight: 4
+    marginRight: 4,
   },
   clinicalValue: { fontSize: 11, fontWeight: "bold", color: THEME.textMain },
-
-  // divider used in card
   divider: { height: 1, backgroundColor: "#FAFAFA" },
 
-  // === FLOATING CHAT BUTTON (BUBBLE) ===
-  chatFab: {
-    position: "absolute",
-    right: 20,
-    bottom: 90,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: THEME.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
-    shadowColor: THEME.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3
-  },
-
-  // === BOTTOM NAV (DOCK STYLE) ===
+  // Bottom Nav
   bottomNav: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -592,20 +913,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#ECEFF1",
     elevation: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05
   },
   navItem: {
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
-    height: "100%"
+    height: "100%",
   },
   navText: { fontSize: 10, marginTop: 4, color: THEME.textSec },
   navTextActive: { color: THEME.primary, fontWeight: "bold" },
-
-  // === ADD BUTTON (CENTER BIG +) ===
   addFab: {
     width: 64,
     height: 64,
@@ -615,10 +931,124 @@ const styles = StyleSheet.create({
     alignItems: "center",
     bottom: 25,
     elevation: 8,
+    borderWidth: 4,
+    borderColor: "#F4F6F8",
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    minHeight: 350,
+    elevation: 10,
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: THEME.textMain },
+  modalSubtitle: { fontSize: 14, color: THEME.textSec, marginTop: 2 },
+  closeBtn: { padding: 8, borderRadius: 20, backgroundColor: "#F5F5F5" },
+  sectionLabel: {
+    fontSize: 12,
+    color: THEME.textSec,
+    marginBottom: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  statusOptionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  statusChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    backgroundColor: "#F8F9FA",
+    marginBottom: 6,
+    marginRight: 6,
+  },
+  statusChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: THEME.textSec,
+    textTransform: "capitalize",
+  },
+  dynamicForm: { marginTop: 10 },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: {
+    fontSize: 14,
+    color: THEME.textMain,
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+
+  // Date Picker Style (Button Look)
+  dateInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 50,
+    backgroundColor: "#FAFAFA",
+  },
+  dateInputText: {
+    flex: 1,
+    marginLeft: 10,
+    color: THEME.textMain,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    backgroundColor: "#F5F7FA",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  infoBox: {
+    flexDirection: "row",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  modalFooter: { marginTop: 20, marginBottom: 10 },
+  saveButton: {
+    backgroundColor: THEME.primary,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
     shadowColor: THEME.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    borderWidth: 4,
-    borderColor: "#F4F6F8"
-  }
+    shadowOpacity: 0.2,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
+  },
 });
