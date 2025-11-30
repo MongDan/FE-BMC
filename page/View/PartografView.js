@@ -6,8 +6,8 @@ import {
   StatusBar,
   TouchableOpacity,
   Text,
-  SafeAreaView, // Agar aman di iPhone berponi
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { useLocation, useNavigate } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";

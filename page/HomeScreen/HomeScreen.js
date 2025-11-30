@@ -13,14 +13,14 @@ import {
   Platform,
   Switch,
   Alert,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView
 } from "react-native";
 // Menggunakan FontAwesome5 untuk ikon medis yang lebih lengkap
 import {
   Ionicons,
   MaterialIcons,
   MaterialCommunityIcons,
-  FontAwesome5,
+  FontAwesome5
 } from "@expo/vector-icons";
 import TambahPasienForm from "./TambahPasienForm";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -43,7 +43,7 @@ const THEME = {
   active: "#29B6F6",
   inactive: "#BDBDBD",
   done: "#66BB6A",
-  referral: "#FFA726",
+  referral: "#FFA726"
 };
 
 // Utilitas Format Tampilan (User Friendly)
@@ -55,7 +55,7 @@ const formatNoReg = (noReg) => {
 const formatDatetimeDisplay = (dateObj) => {
   if (!dateObj) return "-";
   return `${dateObj.getDate()} ${dateObj.toLocaleString("id-ID", {
-    month: "short",
+    month: "short"
   })} ${dateObj.getFullYear()}, ${dateObj
     .getHours()
     .toString()
@@ -92,25 +92,25 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
         return {
           color: THEME.inactive,
           label: "Non-Aktif",
-          icon: "bed-outline",
+          icon: "bed-outline"
         };
       case "selesai":
         return {
           color: THEME.done,
           label: "Selesai",
-          icon: "checkmark-circle-outline",
+          icon: "checkmark-circle-outline"
         };
       case "rujukan":
         return {
           color: THEME.referral,
           label: "Rujukan",
-          icon: "arrow-redo-outline",
+          icon: "arrow-redo-outline"
         };
       default:
         return {
           color: THEME.inactive,
           label: "Unknown",
-          icon: "help-circle-outline",
+          icon: "help-circle-outline"
         };
     }
   };
@@ -131,7 +131,7 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
           <View
             style={[
               styles.avatarCircle,
-              { backgroundColor: THEME.primary + "15" },
+              { backgroundColor: THEME.primary + "15" }
             ]}
           >
             <Text style={[styles.avatarText, { color: THEME.primary }]}>
@@ -152,7 +152,7 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
           <TouchableOpacity
             style={[
               styles.statusBadge,
-              { backgroundColor: statusConfig.color + "15" },
+              { backgroundColor: statusConfig.color + "15" }
             ]}
             onPress={onStatusPress}
           >
@@ -241,7 +241,7 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
   const [picker, setPicker] = useState({
     show: false,
     mode: "date",
-    field: null,
+    field: null
   });
 
   // Reset state & pre-fill data ketika modal dibuka
@@ -312,7 +312,7 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
 
     let payload = {
       status: status,
-      _method: "PUT",
+      _method: "PUT"
     };
 
     if (status === "aktif") {
@@ -336,9 +336,9 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload)
         }
       );
 
@@ -424,15 +424,15 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
                         styles.statusChip,
                         isActive && {
                           backgroundColor: activeColor,
-                          borderColor: activeColor,
-                        },
+                          borderColor: activeColor
+                        }
                       ]}
                       onPress={() => setStatus(item)}
                     >
                       <Text
                         style={[
                           styles.statusChipText,
-                          isActive && { color: "#FFF" },
+                          isActive && { color: "#FFF" }
                         ]}
                       >
                         {item.replace("_", " ")}
@@ -482,7 +482,7 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
                   <View
                     style={[
                       styles.infoBox,
-                      { backgroundColor: THEME.done + "20" },
+                      { backgroundColor: THEME.done + "20" }
                     ]}
                   >
                     <Ionicons
@@ -495,7 +495,7 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
                         marginLeft: 8,
                         color: THEME.textMain,
                         fontSize: 12,
-                        flex: 1,
+                        flex: 1
                       }}
                     >
                       Pastikan bayi sudah lahir.
@@ -579,8 +579,8 @@ export default function HomeScreen() {
           method: "GET",
           headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         }
       );
       const data = await res.json();
@@ -653,8 +653,8 @@ export default function HomeScreen() {
             state: {
               partografId: pasien.partograf_id,
               name: pasien.nama,
-              noReg: pasien.no_reg,
-            },
+              noReg: pasien.no_reg
+            }
           })
         }
         onStatusPress={() => handleOpenStatusModal(pasien)}
@@ -729,7 +729,7 @@ export default function HomeScreen() {
             <Text
               style={[
                 styles.navText,
-                activeScreen === "home" && styles.navTextActive,
+                activeScreen === "home" && styles.navTextActive
               ]}
             >
               Beranda
@@ -742,6 +742,7 @@ export default function HomeScreen() {
           >
             <Ionicons name="add" size={36} color="#FFF" />
           </TouchableOpacity>
+          <Text style={styles.labelAdd}>Tambah Pasien</Text>
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => navigate("/konten-edukasi")}
@@ -781,7 +782,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#FFF",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
   },
   container: { flex: 1, backgroundColor: THEME.bg },
   header: {
@@ -793,7 +794,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
-    elevation: 2,
+    elevation: 2
   },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   logoImage: { width: 32, height: 32, marginRight: 8 },
@@ -802,14 +803,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: THEME.textMain,
-    lineHeight: 20,
+    lineHeight: 20
   },
   iconButton: { padding: 8 },
   searchWrapper: {
     backgroundColor: "#FFF",
     paddingHorizontal: 20,
     paddingBottom: 16,
-    paddingTop: 10,
+    paddingTop: 10
   },
   searchContainer: {
     flexDirection: "row",
@@ -819,7 +820,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 46,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: THEME.border
   },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: THEME.textMain },
   contentContainer: { flex: 1 },
@@ -830,7 +831,7 @@ const styles = StyleSheet.create({
     color: THEME.textSec,
     marginBottom: 12,
     letterSpacing: 1,
-    textTransform: "uppercase",
+    textTransform: "uppercase"
   },
   centerBox: { alignItems: "center", marginTop: 80 },
   loadingText: { marginTop: 16, color: THEME.textSec, fontSize: 14 },
@@ -846,14 +847,14 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    elevation: 2,
+    elevation: 2
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#FAFAFA",
+    borderBottomColor: "#FAFAFA"
   },
   avatarCircle: {
     width: 44,
@@ -861,7 +862,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 12
   },
   avatarText: { fontSize: 18, fontWeight: "bold" },
   headerInfo: { flex: 1 },
@@ -869,7 +870,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: THEME.textMain,
-    marginBottom: 2,
+    marginBottom: 2
   },
   cardReg: { fontSize: 12, color: THEME.textSec },
   statusBadge: {
@@ -877,7 +878,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 8
   },
   statusText: { fontSize: 10, fontWeight: "bold", textTransform: "capitalize" },
   cardBody: { padding: 16, paddingTop: 12 },
@@ -891,14 +892,14 @@ const styles = StyleSheet.create({
     padding: 10,
     flexDirection: "row",
     justifyContent: "space-between",
-    flexWrap: "wrap",
+    flexWrap: "wrap"
   },
   clinicalItem: { flexDirection: "row", alignItems: "center", marginRight: 10 },
   clinicalLabel: {
     fontSize: 11,
     color: THEME.textSec,
     marginLeft: 6,
-    marginRight: 4,
+    marginRight: 4
   },
   clinicalValue: { fontSize: 11, fontWeight: "bold", color: THEME.textMain },
   divider: { height: 1, backgroundColor: "#FAFAFA" },
@@ -912,13 +913,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#ECEFF1",
-    elevation: 20,
+    elevation: 20
   },
   navItem: {
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
-    height: "100%",
+    height: "100%"
   },
   navText: { fontSize: 10, marginTop: 4, color: THEME.textSec },
   navTextActive: { color: THEME.primary, fontWeight: "bold" },
@@ -929,17 +930,17 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.primary,
     justifyContent: "center",
     alignItems: "center",
-    bottom: 25,
+    bottom: 35,
     elevation: 8,
     borderWidth: 4,
-    borderColor: "#F4F6F8",
+    borderColor: "#F4F6F8"
   },
 
   // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+    justifyContent: "flex-end"
   },
   modalContainer: {
     backgroundColor: "#FFF",
@@ -948,13 +949,13 @@ const styles = StyleSheet.create({
     padding: 24,
     minHeight: 350,
     elevation: 10,
-    paddingBottom: 30,
+    paddingBottom: 30
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
+    marginBottom: 20
   },
   modalTitle: { fontSize: 20, fontWeight: "bold", color: THEME.textMain },
   modalSubtitle: { fontSize: 14, color: THEME.textSec, marginTop: 2 },
@@ -964,13 +965,13 @@ const styles = StyleSheet.create({
     color: THEME.textSec,
     marginBottom: 10,
     fontWeight: "700",
-    letterSpacing: 0.5,
+    letterSpacing: 0.5
   },
   statusOptionsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 16
   },
   statusChip: {
     paddingHorizontal: 16,
@@ -980,13 +981,13 @@ const styles = StyleSheet.create({
     borderColor: THEME.border,
     backgroundColor: "#F8F9FA",
     marginBottom: 6,
-    marginRight: 6,
+    marginRight: 6
   },
   statusChipText: {
     fontSize: 13,
     fontWeight: "600",
     color: THEME.textSec,
-    textTransform: "capitalize",
+    textTransform: "capitalize"
   },
   dynamicForm: { marginTop: 10 },
   inputGroup: { marginBottom: 16 },
@@ -994,7 +995,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: THEME.textMain,
     marginBottom: 8,
-    fontWeight: "600",
+    fontWeight: "600"
   },
 
   // Date Picker Style (Button Look)
@@ -1006,14 +1007,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 50,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FAFAFA"
   },
   dateInputText: {
     flex: 1,
     marginLeft: 10,
     color: THEME.textMain,
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "500"
   },
 
   switchRow: {
@@ -1025,14 +1026,14 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: THEME.border
   },
   infoBox: {
     flexDirection: "row",
     padding: 14,
     borderRadius: 12,
     marginBottom: 16,
-    alignItems: "center",
+    alignItems: "center"
   },
   modalFooter: { marginTop: 20, marginBottom: 10 },
   saveButton: {
@@ -1043,12 +1044,21 @@ const styles = StyleSheet.create({
     shadowColor: THEME.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    elevation: 4,
+    elevation: 4
   },
   saveButtonText: {
     color: "#FFF",
     fontSize: 16,
     fontWeight: "bold",
-    letterSpacing: 0.5,
+    letterSpacing: 0.5
   },
+  labelAdd: {
+    position: "absolute",
+    top: 38,
+    paddingVertical: 4,
+    fontSize: 10,
+    color: THEME.textSec,
+    fontWeight: "600",
+    alignSelf: "center"
+  }
 });

@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Modal
 } from "react-native";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useNavigate } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -23,13 +23,20 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false); // === STATE UNTUK KEGAGALAN ===
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("Terjadi kesalahan.");
 
+  const closeErrorModal = () => {
+    setShowError(false);
+  };
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    // --- Ganti alert() dengan Modal Error ---
     if (!username || !password) {
-      alert("Username dan Password tidak boleh kosong.");
+      setErrorMessage("Username dan Password tidak boleh kosong.");
+      setShowError(true);
       return;
     }
 
@@ -48,9 +55,6 @@ export default function LoginScreen() {
         }
       );
 
-      /** =============================
-       *   FIX: HANDLE JSON / NON JSON
-       * ============================= */
       const text = await response.text();
       let data;
 
@@ -78,10 +82,14 @@ export default function LoginScreen() {
         setShowSuccess(false);
         navigate("/home");
       }, 1500);
-
     } catch (error) {
-      setIsLoading(false);
-      alert(error.message);
+      // --- JIKA GAGAL: Menggunakan Modal Error ---
+      setIsLoading(false); // Pastikan pesan error selalu string yang valid
+      const message = error.message
+        ? String(error.message)
+        : "Gagal terhubung ke server. Periksa koneksi internet Anda.";
+      setErrorMessage(message);
+      setShowError(true);
     }
   };
 
@@ -90,7 +98,6 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {/* GANTI BAGIAN showSuccess LAMA DENGAN INI */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -102,15 +109,40 @@ export default function LoginScreen() {
             <View style={styles.iconCircle}>
               <FontAwesome name="check" size={40} color="#4CAF50" />
             </View>
-            <Text style={styles.successTitle}>Login Berhasil!</Text>
+            <Text style={styles.successTitle}>Login Berhasil! 🎉</Text>
             <Text style={styles.successSubtitle}>
               Mengalihkan ke beranda...
             </Text>
           </View>
         </View>
       </Modal>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showError}
+        onRequestClose={closeErrorModal}
+      >
+        <View style={styles.successOverlay}>
+          <View style={styles.errorBox}>
+            <View style={styles.iconCircleError}>
+              <FontAwesome name="times" size={40} color="#D32F2F" />
+            </View>
+
+            <Text style={styles.errorTitle}>Login Gagal</Text>
+            <Text style={styles.errorSubtitle}>{errorMessage}</Text>
+            <TouchableOpacity
+              onPress={closeErrorModal}
+              style={styles.errorButton}
+            >
+              <Text style={styles.errorButtonText}>Coba Lagi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <Image source={require("../../assets/Logo.png")} style={styles.logo} />
+
         <View style={styles.textBlock}>
           <Text style={styles.title}>Ruang</Text>
           <Text style={styles.subtitle}>Bunda</Text>
@@ -130,7 +162,6 @@ export default function LoginScreen() {
       >
         <View style={styles.loginCard}>
           <Text style={styles.loginTitle}>Login</Text>
-
           <Text style={styles.label}>Username:</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -144,6 +175,7 @@ export default function LoginScreen() {
               onChangeText={setUsername}
               autoCapitalize="none"
             />
+
             <FontAwesome
               name="user"
               size={20}
@@ -151,7 +183,6 @@ export default function LoginScreen() {
               style={styles.icon}
             />
           </View>
-
           <Text style={styles.label}>Password:</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -172,7 +203,6 @@ export default function LoginScreen() {
               />
             </TouchableOpacity>
           </View>
-
           <TouchableOpacity
             style={styles.loginButton}
             onPress={handleLogin}
@@ -195,53 +225,107 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F9F6F2",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "flex-end"
   },
 
   successOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)", // Latar belakang lebih gelap sedikit agar fokus
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "center"
   },
   successBox: {
     width: "80%",
     backgroundColor: "#fff",
-    borderRadius: 24, // Sudut lebih bulat (modern style)
+    borderRadius: 24,
     paddingVertical: 40,
     paddingHorizontal: 20,
     alignItems: "center",
-    // Shadow untuk iOS
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 10
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    // Shadow untuk Android
-    elevation: 10,
+    elevation: 10
   },
   iconCircle: {
     width: 80,
     height: 80,
-    backgroundColor: "#E8F5E9", // Hijau sangat muda (soft)
-    borderRadius: 40, // Lingkaran penuh
+    backgroundColor: "#E8F5E9",
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 20
   },
   successTitle: {
     fontSize: 22,
-    fontWeight: "700", // Lebih tebal
+    fontWeight: "700",
     color: "#333",
-    marginBottom: 8,
+    marginBottom: 8
   },
   successSubtitle: {
     fontSize: 14,
-    color: "#888", // Warna abu-abu soft
-    textAlign: "center",
+    color: "#888",
+    textAlign: "center"
   },
+
+  errorBox: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 10
+  },
+  iconCircleError: {
+    width: 80,
+    height: 80,
+    backgroundColor: "#FFEBEE", // Merah sangat muda (soft)
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20
+  },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#D32F2F", // Merah gelap
+    marginBottom: 8
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: "#555",
+    textAlign: "center",
+    marginBottom: 20
+  },
+  closeBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    padding: 5
+  },
+  errorButton: {
+    backgroundColor: "#D32F2F", // Tombol berwarna merah
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    marginTop: 10
+  },
+  errorButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold"
+  }, // ========================== // === UTAMA STYLES (Existing) // ==========================
 
   header: {
     flexDirection: "row",
@@ -249,13 +333,13 @@ const styles = StyleSheet.create({
     marginTop: 50,
     marginLeft: 20,
     marginBottom: 10,
-    alignSelf: "flex-start",
+    alignSelf: "flex-start"
   },
   logo: {
     width: 55,
     height: 55,
     resizeMode: "contain",
-    marginRight: 6,
+    marginRight: 6
   },
   textBlock: { flexDirection: "column" },
   title: { fontSize: 22, fontWeight: "bold", color: "#000" },
@@ -266,18 +350,18 @@ const styles = StyleSheet.create({
     top: 100,
     left: 0,
     right: 0,
-    alignItems: "center",
+    alignItems: "center"
   },
   doctorImage: {
     width: "100%",
     height: 500,
-    resizeMode: "contain",
+    resizeMode: "contain"
   },
 
   scrollContent: {
     flexGrow: 1,
     justifyContent: "flex-end",
-    width: "100%",
+    width: "100%"
   },
   loginCard: {
     backgroundColor: "rgba(255, 255, 255, 0.92)",
@@ -287,14 +371,14 @@ const styles = StyleSheet.create({
     paddingVertical: 70,
     paddingHorizontal: 25,
     alignItems: "center",
-    elevation: 4,
+    elevation: 4
   },
   loginTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#000",
     marginBottom: 10,
-    marginTop: -30,
+    marginTop: -30
   },
 
   label: {
@@ -302,7 +386,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: -10,
     fontSize: 14,
-    color: "#000",
+    color: "#000"
   },
 
   inputContainer: {
@@ -313,12 +397,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginTop: 20,
     width: "97%",
-    height: 45,
+    height: 45
   },
   input: {
     flex: 1,
     color: "#fff",
-    fontSize: 14,
+    fontSize: 14
   },
   icon: { marginLeft: 10 },
 
@@ -327,11 +411,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingVertical: 10,
     paddingHorizontal: 45,
-    marginTop: 20,
+    marginTop: 20
   },
   loginButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
-  },
+    fontWeight: "bold"
+  }
 });
