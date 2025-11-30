@@ -5,13 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  // Hapus Alert bawaan
   StatusBar,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Pressable,
-  Modal // <-- Tambahkan Modal
+  Modal,
 } from "react-native";
 import { useParams, useNavigate, useLocation } from "react-router-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,7 +19,7 @@ import {
   Ionicons,
   MaterialIcons,
   MaterialCommunityIcons,
-  Feather // <-- Tambahkan Feather untuk ikon modal
+  Feather,
 } from "@expo/vector-icons";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
@@ -37,7 +36,22 @@ const THEME = {
   border: "#ECEFF1",
   inputBg: "#FAFAFA",
   activeInput: "#0277BD",
-  placeholder: "#B0BEC5"
+  placeholder: "#B0BEC5",
+};
+
+// ======================= HELPER FUNCTIONS ==========================
+// Fungsi untuk mendapatkan Waktu Lokal (bukan UTC)
+const getLocalDatetime = () => {
+  const now = new Date();
+  const pad = (n) => n.toString().padStart(2, "0");
+  const year = now.getFullYear();
+  const month = pad(now.getMonth() + 1);
+  const day = pad(now.getDate());
+  const hours = pad(now.getHours()); // Mengambil jam lokal device
+  const minutes = pad(now.getMinutes());
+  const seconds = pad(now.getSeconds());
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 // ------------------ COMPONENT: CUSTOM MODAL ALERT ------------------
@@ -49,19 +63,17 @@ function CustomAlertModal({
   type = "info", // 'danger', 'success', 'info', 'confirm'
   confirmText,
   onConfirm,
-  cancelText = "Tutup"
+  cancelText = "Tutup",
 }) {
   const iconMap = {
     danger: { name: "alert-triangle", color: THEME.danger },
     success: { name: "check-circle", color: THEME.accent },
     info: { name: "info", color: THEME.primary },
-    confirm: { name: "help-circle", color: THEME.warning }
+    confirm: { name: "help-circle", color: THEME.warning },
   };
 
   const { name, color: iconColor } = iconMap[type] || iconMap.info;
 
-  // Logika warna tombol: Gunakan THEME.primary untuk CTA utama (Confirm/Success),
-  // atau warna ikon untuk mode satu tombol (Danger/Info).
   const mainButtonColor =
     type === "confirm" || type === "success" ? THEME.primary : iconColor;
   const singleButtonColor = iconColor;
@@ -78,7 +90,7 @@ function CustomAlertModal({
           <View
             style={[
               modalStyles.iconCircle,
-              { backgroundColor: iconColor + "15" }
+              { backgroundColor: iconColor + "15" },
             ]}
           >
             <Feather name={name} size={30} color={iconColor} />
@@ -88,28 +100,25 @@ function CustomAlertModal({
 
           <View style={modalStyles.buttonContainer}>
             {type === "confirm" ? (
-              // Case: Two buttons (Cancel and Confirm)
               <>
-                {/* Cancel Button (Ghost style) */}
                 <Pressable
                   style={[
                     modalStyles.button,
                     modalStyles.ghostButton,
-                    { flex: 1 }
+                    { flex: 1 },
                   ]}
                   onPress={onClose}
                 >
                   <Text style={modalStyles.ghostButtonText}>{cancelText}</Text>
                 </Pressable>
-                {/* Confirm Button (Primary CTA) */}
                 <Pressable
                   style={[
                     modalStyles.button,
                     {
                       backgroundColor: mainButtonColor,
                       flex: 1,
-                      marginLeft: 10
-                    }
+                      marginLeft: 10,
+                    },
                   ]}
                   onPress={onConfirm}
                 >
@@ -117,11 +126,10 @@ function CustomAlertModal({
                 </Pressable>
               </>
             ) : (
-              // Case: Single button (Info, Danger, Success)
               <Pressable
                 style={[
                   modalStyles.button,
-                  { backgroundColor: singleButtonColor, minWidth: "50%" }
+                  { backgroundColor: singleButtonColor, minWidth: "50%" },
                 ]}
                 onPress={onClose}
               >
@@ -135,9 +143,8 @@ function CustomAlertModal({
   );
 }
 
-// ------------------ COMPONENT: FORM INPUT (Tidak berubah) ------------------
+// ------------------ COMPONENT: FORM INPUT ------------------
 function FormInput({
-  // ... (Kode FormInput tetap sama)
   label,
   name,
   value,
@@ -145,12 +152,12 @@ function FormInput({
   placeholder,
   keyboardType = "default",
   suffix,
-  isDateTime = false
+  isDateTime = false,
 }) {
   const [showPicker, setShowPicker] = useState(false);
 
   const handleConfirm = (date) => {
-    // Format waktu lokal: YYYY-MM-DD HH:MM:SS
+    // Format waktu lokal manual agar konsisten
     const pad = (n) => n.toString().padStart(2, "0");
     const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
       date.getDate()
@@ -203,9 +210,8 @@ function FormInput({
   );
 }
 
-// ------------------ COMPONENT: CHIP PICKER / DROPDOWN (Tidak berubah) ------------------
+// ------------------ COMPONENT: CHIP PICKER / DROPDOWN ------------------
 function Picker({ label, value, onChangeValue, options }) {
-  // ... (Kode Picker tetap sama)
   return (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -222,7 +228,7 @@ function Picker({ label, value, onChangeValue, options }) {
               style={({ pressed }) => [
                 styles.chip,
                 isActive && styles.chipActive,
-                pressed && !isActive && { backgroundColor: "#E0E0E0" }
+                pressed && !isActive && { backgroundColor: "#E0E0E0" },
               ]}
             >
               {isActive && (
@@ -246,9 +252,8 @@ function Picker({ label, value, onChangeValue, options }) {
   );
 }
 
-// ------------------ COMPONENT: MEDICAL CARD (Tidak berubah) ------------------
+// ------------------ COMPONENT: MEDICAL CARD ------------------
 function Card({ title, icon, iconColor, children }) {
-  // ... (Kode Card tetap sama)
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -269,12 +274,11 @@ export default function CatatanPartograf() {
   const location = useLocation();
   const noRegis = location.state?.noRegis ?? id;
   const [isLoading, setIsLoading] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false); // State untuk cek draft
+  const [hasDraft, setHasDraft] = useState(false);
 
   // --- States untuk Modal Kustom ---
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({});
-  // ---------------------------------
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
@@ -293,7 +297,7 @@ export default function CatatanPartograf() {
     checkDraft();
   }, [id]);
 
-  // --- FUNGSI SYNC DRAFT (Tidak berubah) ---
+  // --- FUNGSI SYNC DRAFT ---
   const syncDraftKontraksi = async (newCatatanId, token) => {
     const draftKey = `kontraksi_draft_${id}`;
     try {
@@ -303,7 +307,6 @@ export default function CatatanPartograf() {
       const drafts = JSON.parse(draftStr);
       console.log(`Syncing ${drafts.length} drafts...`);
 
-      // Upload satu per satu
       for (const item of drafts) {
         await fetch(
           `https://restful-api-bmc-production.up.railway.app/api/catatan-partograf/${newCatatanId}/kontraksi`,
@@ -311,35 +314,34 @@ export default function CatatanPartograf() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               waktu_mulai: item.waktu_mulai,
-              waktu_selesai: item.waktu_selesai
-            })
+              waktu_selesai: item.waktu_selesai,
+            }),
           }
         );
       }
 
-      // Hapus draft setelah sukses
       await AsyncStorage.removeItem(draftKey);
       setHasDraft(false);
       console.log("Sync selesai!");
     } catch (e) {
       console.error("Sync gagal", e);
-      // Ganti Alert.alert bawaan
       setModalContent({
         title: "Info",
         message: "Gagal sinkronisasi kontraksi offline.",
-        type: "info"
+        type: "info",
       });
       setModalVisible(true);
     }
   };
 
+  // --- INITIAL FORM STATE ---
   const emptyForm = {
     partograf_id: id,
-    waktu_catat: new Date().toISOString().slice(0, 19).replace("T", " "),
+    waktu_catat: getLocalDatetime(), // <--- PERUBAHAN DI SINI (Pakai fungsi lokal)
     djj: "",
     pembukaan_servik: "",
     penurunan_kepala: "",
@@ -352,7 +354,7 @@ export default function CatatanPartograf() {
     volume_urine: "",
     obat_cairan: "",
     air_ketuban: "",
-    molase: ""
+    molase: "",
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -376,12 +378,9 @@ export default function CatatanPartograf() {
     const suhuNum = parseFloat(form.suhu_ibu);
     const pembukaanSekarang = parseInt(form.pembukaan_servik);
 
-    // AMBIL PEMBUKAAN SEBELUMNYA (untuk cek apakah tidak maju)
     const prevKey = `prev_pembukaan_${id}`;
     const prevPembukaan = await AsyncStorage.getItem(prevKey);
-    const pembukaanSebelumnya = prevPembukaan ? parseInt(prevPembukaan) : null;
 
-    // KONDISI BAHAYA
     let dangerMessages = [];
 
     if (djjNum > 160) dangerMessages.push("• DJJ melebihi 160 bpm");
@@ -389,10 +388,7 @@ export default function CatatanPartograf() {
       dangerMessages.push("• Tekanan darah ≥ 150/100");
     if (suhuNum > 39) dangerMessages.push("• Suhu tubuh ibu melebihi 39°C");
 
-    if (
-      pembukaanSebelumnya !== null &&
-      pembukaanSekarang < pembukaanSebelumnya
-    ) {
+    if (prevPembukaan !== null && pembukaanSekarang < parseInt(prevPembukaan)) {
       dangerMessages.push("• Pembukaan servik tidak maju atau mundur");
     }
 
@@ -402,19 +398,19 @@ export default function CatatanPartograf() {
         message: dangerMessages.join("\n"),
         type: "danger",
         cancelText: "Mengerti",
-        onConfirm: null // Pastikan tidak ada aksi konfirmasi
+        onConfirm: null,
       });
       setModalVisible(true);
       return;
     }
 
-    // ============= LANJUTKAN PROSES SUBMIT NORMAL =============
+    // ============= SUBMIT =============
     const userToken = await AsyncStorage.getItem("userToken");
     if (!userToken) {
       setModalContent({
         title: "Akses Ditolak",
         message: "Token tidak ditemukan.",
-        type: "danger"
+        type: "danger",
       });
       setModalVisible(true);
       return;
@@ -424,7 +420,7 @@ export default function CatatanPartograf() {
       setModalContent({
         title: "Data Kosong",
         message: "Mohon isi setidaknya satu data vital.",
-        type: "info"
+        type: "info",
       });
       setModalVisible(true);
       return;
@@ -432,7 +428,6 @@ export default function CatatanPartograf() {
 
     setIsLoading(true);
     try {
-      // SIMPAN PEMBUKAAN SEKARANG UNTUK CEK SELANJUTNYA
       await AsyncStorage.setItem(prevKey, pembukaanSekarang.toString());
 
       const res = await fetch(
@@ -442,9 +437,9 @@ export default function CatatanPartograf() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${userToken}`,
-            Accept: "application/json"
+            Accept: "application/json",
           },
-          body: JSON.stringify(form)
+          body: JSON.stringify(form),
         }
       );
 
@@ -460,12 +455,11 @@ export default function CatatanPartograf() {
         }
       }
 
-      // Ganti Alert.alert Sukses dengan Modal Kustom
       setModalContent({
         title: "Berhasil",
         message:
           "Catatan Partograf berhasil disimpan. Lanjut ke Monitor Kontraksi?",
-        type: "confirm", // Gunakan type 'confirm' untuk dua tombol
+        type: "confirm",
         confirmText: "Ya, Buka Monitor",
         cancelText: "Nanti Saja",
         onConfirm: () => {
@@ -473,18 +467,16 @@ export default function CatatanPartograf() {
           navigate(`/monitor-kontraksi/${newCatatanId}/${id}`);
         },
         onClose: () => {
-          // Fungsi onClose untuk tombol Nanti Saja
           setModalVisible(false);
           navigate(-1);
-        }
+        },
       });
       setModalVisible(true);
     } catch (error) {
-      // Ganti Alert.alert Gagal dengan Modal Kustom
       setModalContent({
         title: "Gagal",
         message: error.message,
-        type: "danger"
+        type: "danger",
       });
       setModalVisible(true);
     } finally {
@@ -494,11 +486,9 @@ export default function CatatanPartograf() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* MODAL KUSTOM */}
       <CustomAlertModal
         isVisible={modalVisible}
         onClose={() => {
-          // Handle case for success modal with custom onClose/onConfirm
           if (modalContent.type === "confirm" && modalContent.onClose) {
             modalContent.onClose();
           } else {
@@ -512,7 +502,6 @@ export default function CatatanPartograf() {
         onConfirm={modalContent.onConfirm}
         cancelText={modalContent.cancelText}
       />
-      {/* END MODAL KUSTOM */}
 
       <View style={styles.header}>
         <Pressable onPress={() => navigate(-1)} style={styles.backBtn}>
@@ -534,7 +523,6 @@ export default function CatatanPartograf() {
           contentContainerStyle={styles.contentArea}
           showsVerticalScrollIndicator={false}
         >
-          {/* Notifikasi Draft (Tetap sama) */}
           {hasDraft && (
             <View style={styles.draftBadge}>
               <MaterialCommunityIcons
@@ -549,7 +537,7 @@ export default function CatatanPartograf() {
             </View>
           )}
 
-          {/* CARD: Vital Signs (Tetap sama) */}
+          {/* CARD: Vital Signs */}
           <Card
             title="Tanda Vital & Fisik"
             icon="heart-pulse"
@@ -604,7 +592,7 @@ export default function CatatanPartograf() {
             />
           </Card>
 
-          {/* CARD: Laboratorium & Urin (Tetap sama) */}
+          {/* CARD: Laboratorium & Urin */}
           <Card
             title="Laboratorium & Urin"
             icon="test-tube"
@@ -640,7 +628,7 @@ export default function CatatanPartograf() {
               onChangeValue={(v) => handleChange("protein", v)}
               options={["-", "+", "++", "+++"].map((v) => ({
                 label: v,
-                value: v
+                value: v,
               }))}
             />
             <FormInput
@@ -654,7 +642,7 @@ export default function CatatanPartograf() {
             />
           </Card>
 
-          {/* CARD: Terapi & Kondisi Janin (Tetap sama) */}
+          {/* CARD: Terapi & Kondisi Janin */}
           <Card title="Terapi & Kondisi Janin" icon="pill" iconColor="#00897B">
             <FormInput
               label="Obat-obatan / Cairan Infus"
@@ -672,7 +660,7 @@ export default function CatatanPartograf() {
                 { label: "Ketuban Belum Pecah (U)", value: "U" },
                 { label: "Mekonium (M)", value: "M" },
                 { label: "Darah (D)", value: "D" },
-                { label: "Kering (K)", value: "K" }
+                { label: "Kering (K)", value: "K" },
               ]}
             />
             <Picker
@@ -710,9 +698,8 @@ export default function CatatanPartograf() {
   );
 }
 
-// ------------------ STYLES (Diperluas dengan Modal) ------------------
+// ------------------ STYLES ------------------
 const styles = StyleSheet.create({
-  // ... (Styles yang sudah ada tetap sama)
   container: { flex: 1, backgroundColor: THEME.bg },
   header: {
     flexDirection: "row",
@@ -721,7 +708,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: THEME.border
+    borderBottomColor: THEME.border,
   },
   backBtn: { marginRight: 16, padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
@@ -736,14 +723,14 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
-    elevation: 2
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#FAFAFA"
+    borderBottomColor: "#FAFAFA",
   },
   iconBox: {
     width: 32,
@@ -751,7 +738,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12
+    marginRight: 12,
   },
   cardTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
   cardBody: { padding: 16 },
@@ -760,7 +747,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: THEME.textSec,
-    marginBottom: 6
+    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: "row",
@@ -769,14 +756,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.border,
     borderRadius: 8,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   inputField: { flex: 1, fontSize: 15, color: THEME.textMain },
   inputSuffix: {
     fontSize: 12,
     color: THEME.textSec,
     fontWeight: "600",
-    marginLeft: 8
+    marginLeft: 8,
   },
   chipContainer: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
@@ -791,11 +778,11 @@ const styles = StyleSheet.create({
     borderColor: THEME.border,
     borderRadius: 8,
     marginRight: 8,
-    marginBottom: 8
+    marginBottom: 8,
   },
   chipActive: {
     backgroundColor: THEME.primary,
-    borderColor: THEME.primary
+    borderColor: THEME.primary,
   },
   chipText: { fontSize: 14, color: THEME.textSec, fontWeight: "600" },
   chipTextActive: { color: "#FFF", fontWeight: "600" },
@@ -810,13 +797,13 @@ const styles = StyleSheet.create({
     shadowColor: THEME.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    elevation: 4
+    elevation: 4,
   },
   submitText: {
     color: "#FFF",
     fontSize: 16,
     fontWeight: "bold",
-    letterSpacing: 1
+    letterSpacing: 1,
   },
   draftBadge: {
     flexDirection: "row",
@@ -826,32 +813,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#FFE0B2"
+    borderColor: "#FFE0B2",
   },
-  draftText: { color: "#E65100", fontSize: 11, marginLeft: 8, flex: 1 }
+  draftText: { color: "#E65100", fontSize: 11, marginLeft: 8, flex: 1 },
 });
 
-// ------------------ STYLES: CUSTOM MODAL ------------------
 const modalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
   },
   alertBox: {
     width: "100%",
     backgroundColor: THEME.cardBg,
-    borderRadius: 18, // Lebih bulat
-    padding: 30, // Lebih banyak padding
+    borderRadius: 18,
+    padding: 30,
     alignItems: "center",
-    // Shadow yang lebih menonjol
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 15,
-    elevation: 10
+    elevation: 10,
   },
   iconCircle: {
     width: 60,
@@ -859,53 +844,52 @@ const modalStyles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15
+    marginBottom: 15,
   },
   title: {
-    fontSize: 20, // Lebih besar
+    fontSize: 20,
     fontWeight: "bold",
     color: THEME.textMain,
     marginBottom: 10,
-    textAlign: "center"
+    textAlign: "center",
   },
   message: {
-    fontSize: 15, // Ditingkatkan dari 14
-    color: THEME.textMain, // Diubah ke warna teks utama untuk kontras
+    fontSize: 15,
+    color: THEME.textMain,
     textAlign: "center",
-    marginBottom: 30, // Jarak lebih jauh dari tombol
-    lineHeight: 22 // Menambahkan jarak antar baris
+    marginBottom: 30,
+    lineHeight: 22,
   },
   buttonContainer: {
     flexDirection: "row",
     width: "100%",
-    justifyContent: "center" // Diubah dari space-between
+    justifyContent: "center",
   },
   button: {
-    paddingVertical: 14, // Lebih tinggi
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12, // Lebih bulat
+    borderRadius: 12,
     minWidth: 120,
     alignItems: "center",
-    justifyContent: "center" // Tambahkan ini untuk memusatkan konten (teks)
+    justifyContent: "center",
   },
   buttonText: {
     color: "#FFF",
     fontWeight: "bold",
     fontSize: 14,
-    textAlign: "center" // Tambahkan ini
+    textAlign: "center",
   },
-  // Style baru untuk tombol sekunder/batal (Ghost Button)
   ghostButton: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: THEME.border,
     minWidth: 120,
-    marginRight: 10 // Tambahkan jarak jika ada tombol lain (confirm)
+    marginRight: 10,
   },
   ghostButtonText: {
     color: THEME.textMain,
     fontWeight: "600",
     fontSize: 14,
-    textAlign: "center" // Tambahkan ini
-  }
+    textAlign: "center",
+  },
 });
