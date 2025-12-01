@@ -579,7 +579,7 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
                       label="Berat Badan"
                       value={beratBadan}
                       onChange={setBeratBadan}
-                      suffix="gram"
+                      suffix="kg"
                     />
                     <NumberInput
                       label="Panjang Badan"

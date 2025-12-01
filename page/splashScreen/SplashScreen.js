@@ -7,7 +7,7 @@ export default function SplashScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <Image
-        source={require("../../assets/HeaderBar.png")}
+        source={require("../../assets/HeaderBar.webp")}
         style={styles.headerBar}
       />
 
@@ -35,7 +35,7 @@ export default function SplashScreen() {
             style={styles.logoKecil}
           />
           <Image
-            source={require("../../assets/BMC.png")}
+            source={require("../../assets/BMC.webp")}
             style={styles.logoKecil}
           />
         </View>
@@ -43,7 +43,7 @@ export default function SplashScreen() {
 
       {/* Footer */}
       <Image
-        source={require("../../assets/FooterBar.png")}
+        source={require("../../assets/FooterBar.webp")}
         style={styles.footerBar}
       />
     </SafeAreaView>

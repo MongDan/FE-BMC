@@ -151,7 +151,7 @@ export default function LoginScreen() {
 
       <View style={styles.imageWrapper}>
         <Image
-          source={require("../../assets/Dokter.png")}
+          source={require("../../assets/Dokter.webp")}
           style={styles.doctorImage}
         />
       </View>

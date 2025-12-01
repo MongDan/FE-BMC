@@ -3,6 +3,7 @@
     "name": "RuangBunda Bidan",
     "slug": "FE-BMC",
     "version": "1.0.0",
+    "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/Logo.png",
     "userInterfaceStyle": "light",
@@ -30,6 +31,18 @@
       "eas": {
         "projectId": "d9cbd2ce-f9be-4764-ac6f-26f71ea694be"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProGuardInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ]
+    ]
   }
 }
