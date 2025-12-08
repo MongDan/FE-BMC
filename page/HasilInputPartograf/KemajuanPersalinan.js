@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
 } from "react-native";
 import { useParams, useNavigate } from "react-router-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -13,7 +13,9 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 // === HELPERS ===
 const formatTime = (dateString) => {
   if (!dateString) return "-";
-  const d = new Date(dateString);
+  // Fix format "YYYY-MM-DD HH:mm:ss" menjadi "YYYY-MM-DDTHH:mm:ss" agar aman di semua device
+  const safeDate = dateString.replace(" ", "T");
+  const d = new Date(safeDate);
   const hours = d.getUTCHours().toString().padStart(2, "0");
   const minutes = d.getUTCMinutes().toString().padStart(2, "0");
   return `${hours}:${minutes}`;
@@ -21,7 +23,8 @@ const formatTime = (dateString) => {
 
 const formatDateFull = (dateString) => {
   if (!dateString) return "-";
-  const d = new Date(dateString);
+  const safeDate = dateString.replace(" ", "T");
+  const d = new Date(safeDate);
   const months = [
     "Jan",
     "Feb",
@@ -34,7 +37,7 @@ const formatDateFull = (dateString) => {
     "Sep",
     "Okt",
     "Nov",
-    "Des"
+    "Des",
   ];
   const day = d.getUTCDate();
   const month = months[d.getUTCMonth()];
@@ -43,32 +46,23 @@ const formatDateFull = (dateString) => {
   return `${day} ${month}, ${hours}:${minutes}`;
 };
 
-const groupHistoryBy10Minutes = (data) => {
-  if (!Array.isArray(data) || data.length === 0) return [];
-  const sortedData = [...data].sort(
-    (a, b) => new Date(b.waktu_mulai) - new Date(a.waktu_mulai)
-  );
-  const groups = {};
-  sortedData.forEach((item) => {
-    const date = new Date(item.waktu_mulai);
-    const roundedMinutes = Math.floor(date.getUTCMinutes() / 10) * 10;
-    const startH = date.getUTCHours().toString().padStart(2, "0");
-    const startM = roundedMinutes.toString().padStart(2, "0");
+// Helper baru untuk membuat judul rentang 10 menit berdasarkan waktu catat
+const formatRangeTitle = (dateString) => {
+  if (!dateString) return "-";
+  const safeDate = dateString.replace(" ", "T");
+  const d = new Date(safeDate);
 
-    const endDate = new Date(date);
-    endDate.setUTCMinutes(roundedMinutes + 10);
-    const endH = endDate.getUTCHours().toString().padStart(2, "0");
-    const endM = endDate.getUTCMinutes().toString().padStart(2, "0");
+  // Waktu Mulai (Sesuai Waktu Catat)
+  const startH = d.getUTCHours().toString().padStart(2, "0");
+  const startM = d.getUTCMinutes().toString().padStart(2, "0");
 
-    const groupKey = `${startH}:${startM} - ${endH}:${endM}`;
-    if (!groups[groupKey]) groups[groupKey] = [];
-    groups[groupKey].push(item);
-  });
-  return Object.keys(groups).map((key) => ({
-    title: key,
-    data: groups[key],
-    count: groups[key].length
-  }));
+  // Waktu Selesai (+10 menit)
+  const dEnd = new Date(d);
+  dEnd.setUTCMinutes(d.getUTCMinutes() + 10);
+  const endH = dEnd.getUTCHours().toString().padStart(2, "0");
+  const endM = dEnd.getUTCMinutes().toString().padStart(2, "0");
+
+  return `${startH}:${startM} - ${endH}:${endM}`;
 };
 
 // Komponen Bar Pembukaan
@@ -134,14 +128,42 @@ export default function KemajuanPersalinan() {
         (item) =>
           item.pembukaan_servik !== null || item.penurunan_kepala !== null
       )
-      .sort((a, b) => new Date(b.waktu_catat) - new Date(a.waktu_catat));
+      .sort(
+        (a, b) =>
+          new Date(b.waktu_catat.replace(" ", "T")) -
+          new Date(a.waktu_catat.replace(" ", "T"))
+      );
   }, [apiData]);
 
+  // LOGIKA BARU: Grouping berdasarkan Waktu Catat
   const kontraksiGroups = useMemo(() => {
-    const allKontraksi = (apiData || []).flatMap(
-      (item) => item.kontraksi || []
+    // 1. Ambil data yang punya array kontraksi (meskipun kosong tetap diambil jika ingin menampilkan slot kosong,
+    // tapi biasanya kita filter yang ada isinya atau sesuai kebutuhan.
+    // Di sini saya filter yang array kontraksinya tidak null/undefined)
+    const validData = (apiData || []).filter((item) =>
+      Array.isArray(item.kontraksi)
     );
-    return groupHistoryBy10Minutes(allKontraksi);
+
+    // 2. Urutkan berdasarkan waktu_catat terbaru di atas
+    validData.sort(
+      (a, b) =>
+        new Date(b.waktu_catat.replace(" ", "T")) -
+        new Date(a.waktu_catat.replace(" ", "T"))
+    );
+
+    // 3. Map menjadi format tampilan
+    return validData
+      .map((item) => {
+        // Data kontraksi spesifik milik catatan ini
+        const listKontraksi = item.kontraksi || [];
+
+        return {
+          title: formatRangeTitle(item.waktu_catat), // Judul misal: 16:00 - 16:10
+          count: listKontraksi.length,
+          data: listKontraksi,
+        };
+      })
+      .filter((group) => group.count > 0); // Opsional: Hanya tampilkan jika ada kontraksi di jam tersebut
   }, [apiData]);
 
   if (loading) {
@@ -172,7 +194,7 @@ export default function KemajuanPersalinan() {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === "pembukaan" && styles.tabBtnActive
+            activeTab === "pembukaan" && styles.tabBtnActive,
           ]}
           onPress={() => setActiveTab("pembukaan")}
         >
@@ -184,7 +206,7 @@ export default function KemajuanPersalinan() {
           <Text
             style={[
               styles.tabText,
-              activeTab === "pembukaan" && styles.tabTextActive
+              activeTab === "pembukaan" && styles.tabTextActive,
             ]}
           >
             Pembukaan
@@ -194,7 +216,7 @@ export default function KemajuanPersalinan() {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === "kontraksi" && styles.tabBtnActive
+            activeTab === "kontraksi" && styles.tabBtnActive,
           ]}
           onPress={() => setActiveTab("kontraksi")}
         >
@@ -206,7 +228,7 @@ export default function KemajuanPersalinan() {
           <Text
             style={[
               styles.tabText,
-              activeTab === "kontraksi" && styles.tabTextActive
+              activeTab === "kontraksi" && styles.tabTextActive,
             ]}
           >
             Kontraksi
@@ -251,7 +273,7 @@ export default function KemajuanPersalinan() {
                               styles.dot,
                               item.penurunan_kepala >= num
                                 ? styles.dotActive
-                                : styles.dotInactive
+                                : styles.dotInactive,
                             ]}
                           />
                         ))}
@@ -296,6 +318,7 @@ export default function KemajuanPersalinan() {
                     {group.data.map((k, kIdx) => {
                       const start = new Date(k.waktu_mulai);
                       const end = new Date(k.waktu_selesai);
+                      // Hitung durasi
                       const durasi = Math.round((end - start) / 1000);
                       return (
                         <View key={kIdx} style={styles.tr}>
@@ -309,7 +332,7 @@ export default function KemajuanPersalinan() {
                             style={[
                               styles.td,
                               styles.tdBold,
-                              { textAlign: "right" }
+                              { textAlign: "right" },
                             ]}
                           >
                             {durasi}"
@@ -339,7 +362,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: "#EEE",
-    paddingTop: 40
+    paddingTop: 40,
   },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
@@ -348,7 +371,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#EEE"
+    borderBottomColor: "#EEE",
   },
   tabBtn: {
     flex: 1,
@@ -358,7 +381,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: "#F5F5F5",
-    marginHorizontal: 4
+    marginHorizontal: 4,
   },
   tabBtnActive: { backgroundColor: "#0277BD" },
   tabText: { marginLeft: 6, fontWeight: "600", color: "#666", fontSize: 14 },
@@ -367,7 +390,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 50
+    marginTop: 50,
   },
   emptyIconBg: {
     width: 60,
@@ -376,7 +399,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0E0E0",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10
+    marginBottom: 10,
   },
   emptyText: { color: "#999", fontStyle: "italic", fontSize: 14 },
   card: {
@@ -388,7 +411,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2
+    shadowRadius: 2,
   },
   cardDateRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   cardDate: {
@@ -396,14 +419,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     color: "#888",
-    textTransform: "uppercase"
+    textTransform: "uppercase",
   },
   barContainer: { marginBottom: 10 },
   barHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginBottom: 8
+    marginBottom: 8,
   },
   barLabel: { fontSize: 14, color: "#555", fontWeight: "500" },
   barValue: { fontSize: 18, fontWeight: "bold", color: "#0277BD" },
@@ -414,7 +437,7 @@ const styles = StyleSheet.create({
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
   },
   label: { fontSize: 14, color: "#555", fontWeight: "500" },
   dotsContainer: { flexDirection: "row", alignItems: "center" },
@@ -425,20 +448,20 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: "bold",
     color: "#0277BD",
-    fontSize: 16
+    fontSize: 16,
   },
   noDataText: {
     fontSize: 12,
     color: "#AAA",
     fontStyle: "italic",
-    marginBottom: 8
+    marginBottom: 8,
   },
   cardNoPadding: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     marginBottom: 16,
     elevation: 2,
-    overflow: "hidden"
+    overflow: "hidden",
   },
   groupHeader: {
     flexDirection: "row",
@@ -446,14 +469,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#E1F5FE",
     paddingVertical: 10,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
   },
   groupTitle: { fontSize: 14, fontWeight: "bold", color: "#0277BD" },
   countBadge: {
     backgroundColor: "#FFF",
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4
+    borderRadius: 4,
   },
   countText: { fontSize: 12, fontWeight: "bold", color: "#0277BD" },
   thRow: {
@@ -462,7 +485,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: "#FAFAFA",
     borderBottomWidth: 1,
-    borderBottomColor: "#EEE"
+    borderBottomColor: "#EEE",
   },
   th: { flex: 1, fontSize: 11, fontWeight: "bold", color: "#888" },
   tr: {
@@ -470,8 +493,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5"
+    borderBottomColor: "#F5F5F5",
   },
   td: { flex: 1, fontSize: 13, color: "#444" },
-  tdBold: { fontWeight: "bold", color: "#0277BD" }
+  tdBold: { fontWeight: "bold", color: "#0277BD" },
 });
