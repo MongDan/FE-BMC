@@ -22,10 +22,12 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import TambahPasienForm from "./TambahPasienForm";
+import { registerForPushNotificationsAsync } from "../../src/NotificationService";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProfileScreen from "../ProfileScreen/ProfileScreen";
 import { useNavigate } from "react-router-native";
+import { cancelAllReminders } from "../../src/NotificationService";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 // ======================= MEDICAL THEME COLORS ==========================
@@ -391,6 +393,10 @@ const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
       const data = await response.json();
 
       if (response.ok) {
+        if (["selesai", "rujukan", "tidak_aktif"].includes(status)) {
+            await cancelAllReminders(); // MATIKAN ALARM
+            console.log("Notifikasi dimatikan untuk pasien ini.");
+        }
         Alert.alert("Berhasil", "Status pasien dan data berhasil diperbarui.");
         onSuccess();
         onClose();
@@ -688,6 +694,7 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
+    registerForPushNotificationsAsync();
     const load = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
@@ -749,6 +756,7 @@ export default function HomeScreen() {
               partografId: pasien.partograf_id,
               name: pasien.nama,
               noReg: pasien.no_reg,
+              status: pasien.persalinan?.status || "Pending",
             },
           })
         }

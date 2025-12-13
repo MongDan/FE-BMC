@@ -14,7 +14,7 @@ import { WebView } from "react-native-webview";
 import { useLocation, useNavigate } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 export default function PartografWebview() {

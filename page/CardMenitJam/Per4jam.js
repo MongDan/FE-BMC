@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-native";
 import {
   View,
   Text,
@@ -10,27 +11,28 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Modal, // <-- Tambahkan Modal
-  Pressable // <-- Tambahkan Pressable
+  Modal,
+  Pressable,
 } from "react-native";
 import { useParams, useNavigate } from "react-router-native";
 import {
   MaterialIcons,
   MaterialCommunityIcons,
-  Feather // <-- Tambahkan Feather untuk ikon modal
+  Feather,
 } from "@expo/vector-icons";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { scheduleVTReminder } from "../../src/NotificationService";
 
 // ======================= MEDICAL THEME ==========================
 const THEME = {
   bg: "#F4F6F8",
   card: "#FFFFFF",
-  primary: "#0277BD", // Biru
-  accent: "#00897B", // Hijau (tidak digunakan langsung, tapi diikutkan)
+  primary: "#0277BD",
+  accent: "#00897B",
   success: "#2E7D32",
-  danger: "#E53935", // Merah untuk bahaya
+  danger: "#E53935",
   warning: "#FFB300",
   textMain: "#263238",
   textSec: "#78909C",
@@ -38,10 +40,9 @@ const THEME = {
   inputBg: "#FAFAFA",
   chipActive: "#0277BD",
   chipTextActive: "#FFFFFF",
-  chipInactive: "#FFFFFF"
+  chipInactive: "#FFFFFF",
 };
 
-// === HELPER: FIX JAM UTC KE LOKAL (WIB) ===
 const toLocalISOString = (date) => {
   const tzOffset = date.getTimezoneOffset() * 60000;
   const localTime = new Date(date.getTime() - tzOffset);
@@ -54,20 +55,19 @@ function CustomAlertModal({
   onClose,
   title,
   message,
-  type = "info", // 'danger', 'success', 'info', 'confirm'
+  type = "info",
   confirmText,
   onConfirm,
-  cancelText = "Tutup"
+  cancelText = "Tutup",
 }) {
   const iconMap = {
     danger: { name: "alert-triangle", color: THEME.danger },
-    success: { name: "check-circle", color: THEME.success }, // Success menggunakan warna hijau
+    success: { name: "check-circle", color: THEME.success },
     info: { name: "info", color: THEME.primary },
-    confirm: { name: "help-circle", color: THEME.warning }
+    confirm: { name: "help-circle", color: THEME.warning },
   };
 
   const { name, color: iconColor } = iconMap[type] || iconMap.info;
-
   const mainButtonColor =
     type === "confirm" || type === "success" ? THEME.primary : iconColor;
   const singleButtonColor = iconColor;
@@ -84,38 +84,34 @@ function CustomAlertModal({
           <View
             style={[
               modalStyles.iconCircle,
-              { backgroundColor: iconColor + "15" }
+              { backgroundColor: iconColor + "15" },
             ]}
           >
             <Feather name={name} size={30} color={iconColor} />
           </View>
           <Text style={modalStyles.title}>{title}</Text>
           <Text style={modalStyles.message}>{message}</Text>
-
           <View style={modalStyles.buttonContainer}>
             {type === "confirm" ? (
-              // Case: Two buttons (Cancel and Confirm)
               <>
-                {/* Cancel Button (Ghost style) */}
                 <Pressable
                   style={[
                     modalStyles.button,
                     modalStyles.ghostButton,
-                    { flex: 1 }
+                    { flex: 1 },
                   ]}
                   onPress={onClose}
                 >
                   <Text style={modalStyles.ghostButtonText}>{cancelText}</Text>
                 </Pressable>
-                {/* Confirm Button (Primary CTA) */}
                 <Pressable
                   style={[
                     modalStyles.button,
                     {
                       backgroundColor: mainButtonColor,
                       flex: 1,
-                      marginLeft: 10
-                    }
+                      marginLeft: 10,
+                    },
                   ]}
                   onPress={onConfirm}
                 >
@@ -123,11 +119,10 @@ function CustomAlertModal({
                 </Pressable>
               </>
             ) : (
-              // Case: Single button (Info, Danger, Success)
               <Pressable
                 style={[
                   modalStyles.button,
-                  { backgroundColor: singleButtonColor, minWidth: "50%" }
+                  { backgroundColor: singleButtonColor, minWidth: "50%" },
                 ]}
                 onPress={onClose}
               >
@@ -177,19 +172,57 @@ function MedicalChipPicker({ label, value, onChange, options }) {
   );
 }
 
+// ======================= HELPER: MOLASE DESCRIPTION ==========================
+// Ini logic deskripsi sesuai request lu
+const getMolaseDescription = (val) => {
+  const intVal = parseInt(val);
+  switch (intVal) {
+    case 0:
+      return {
+        text: "0 (Tulang Kepala Janin Terpisah)",
+        color: "green",
+        bg: "#E8F5E9",
+        icon: "check-circle",
+      };
+    case 1:
+      return {
+        text: "1 (Tulang Kepala Janin Bersentuhan)",
+        color: "#FBC02D", // Kuning Gelap
+        bg: "#FFF9C4",
+        icon: "info",
+      };
+    case 2:
+      return {
+        text: "2 (Tulang Kepala Janin Tumpang Tindih Tetapi Masih Dapat Dipisahkan)",
+        color: "#F57C00", // Orange
+        bg: "#FFE0B2",
+        icon: "alert-circle",
+      };
+    case 3:
+      return {
+        text: "3 (Tulang Kepala Janin Tumpang Tindih Dan Tidak Dapat Dipisahkan)",
+        color: "#D32F2F", // Merah Bahaya
+        bg: "#FFEBEE",
+        icon: "alert-octagon",
+      };
+    default:
+      return null;
+  }
+};
+
 export default function Per4jam() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // === STATE UNTUK API ===
   const [userToken, setUserToken] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // === STATE MODAL KUSTOM ===
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({});
 
-  // === STATE FORM ===
+  const location = useLocation();
+  // 2. Ambil nama
+  const namaPasien = location.state?.name || "Ibu";
+
   const [form, setForm] = useState({
     pembukaan: "",
     penurunan: "",
@@ -197,14 +230,12 @@ export default function Per4jam() {
     warnaKetuban: "",
     sistolik: "",
     diastolik: "",
-    suhu: ""
+    suhu: "",
   });
 
-  // ==== Waktu Catat ====
   const [waktuCatat, setWaktuCatat] = useState(new Date());
   const [isPickerVisible, setPickerVisible] = useState(false);
 
-  // 1. Load Token saat halaman dibuka
   useEffect(() => {
     const loadToken = async () => {
       try {
@@ -220,36 +251,26 @@ export default function Per4jam() {
   const handleChange = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  // 2. Fungsi Submit ke API
   const handleSubmit = async () => {
-    // Pastikan input berupa angka sebelum diconvert
     const sistolikNum = parseInt(form.sistolik);
     const diastolikNum = parseInt(form.diastolik);
     const suhuNum = parseFloat(form.suhu);
-
-    // ==========================================================
-    // C. VALIDASI BAHAYA KLINIS (TEKANAN DARAH & SUHU)
-    // ==========================================================
     let dangerMessages = [];
 
-    // Tekanan Darah Bahaya: Sistolik >= 150 ATAU Diastolik >= 100
-    if (sistolikNum >= 150 || diastolikNum >= 100) {
+    if (sistolikNum >= 150 || diastolikNum >= 100)
       dangerMessages.push("• Tekanan darah ≥ 150/100 mmHg ");
-    }
-
-    // Suhu Bahaya 1: Suhu Tinggi (> 38.5°C)
-    if (suhuNum > 38.5) {
+    if (suhuNum > 38.5)
       dangerMessages.push(
         `• Suhu tubuh ibu ${suhuNum}°C melebihi batas aman 38.5°C `
       );
-    }
-
-    // Suhu Bahaya 2: Suhu Rendah (< 36.0°C)
-    // Menambahkan pengecekan suhu > 0 untuk menghindari alert saat input kosong/NaN
-    if (suhuNum < 36.0 && suhuNum > 0) {
+    if (suhuNum < 36.0 && suhuNum > 0)
       dangerMessages.push(
         `• Suhu tubuh ibu ${suhuNum}°C di bawah batas aman 36.0°C `
       );
+
+    // Validasi Molase 3 (Bahaya Obstruksi)
+    if (form.penyusupan === "3") {
+      dangerMessages.push("• Molase 3: Bahaya Obstruksi Persalinan!");
     }
 
     if (dangerMessages.length > 0) {
@@ -258,14 +279,15 @@ export default function Per4jam() {
         message: dangerMessages.join("\n"),
         type: "danger",
         cancelText: "Mengerti",
-        onConfirm: null // Tidak bisa dikonfirmasi untuk lanjut simpan
+        onConfirm: null,
       });
       setModalVisible(true);
+      // Untuk safety, kalau molase 3 sebaiknya jangan di-return langsung biar data tetep kesimpen tapi warning muncul.
+      // Tapi kalau mau strict (gak boleh simpan), biarkan return.
+      // Disini gue biarkan return biar user 'Mengerti' dulu.
       return;
     }
-    // ==========================================================
 
-    // A. Validasi Kelengkapan
     if (
       !form.pembukaan ||
       !form.penurunan ||
@@ -279,7 +301,7 @@ export default function Per4jam() {
         title: "Data Belum Lengkap",
         message: "Mohon lengkapi seluruh kolom observasi.",
         type: "info",
-        cancelText: "OK"
+        cancelText: "OK",
       });
       setModalVisible(true);
       return;
@@ -290,16 +312,14 @@ export default function Per4jam() {
         title: "Akses Ditolak",
         message: "Sesi habis, silakan login ulang.",
         type: "danger",
-        cancelText: "Tutup"
+        cancelText: "Tutup",
       });
       setModalVisible(true);
       return;
     }
 
     setLoading(true);
-
     try {
-      // B. Mapping Data Form ke Format Backend
       const payload = {
         partograf_id: id,
         waktu_catat: toLocalISOString(waktuCatat),
@@ -309,10 +329,8 @@ export default function Per4jam() {
         air_ketuban: form.warnaKetuban,
         sistolik: form.sistolik,
         diastolik: form.diastolik,
-        suhu_ibu: form.suhu
+        suhu_ibu: form.suhu,
       };
-
-      console.log("Sending Data:", payload);
 
       const res = await fetch(
         `https://restful-api-bmc-production.up.railway.app/api/partograf/${id}/catatan`,
@@ -320,108 +338,82 @@ export default function Per4jam() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}`
+            Authorization: `Bearer ${userToken}`,
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         }
       );
 
-      // === HANDLING ERROR HTML response (SyntaxError <) ===
       const textResponse = await res.text();
-      console.log("Response Server:", textResponse);
-
       let json;
       try {
         json = JSON.parse(textResponse);
       } catch (e) {
-        if (textResponse.trim().startsWith("<")) {
-          setModalContent({
-            title: "Server Error",
-            message:
-              "Terjadi kesalahan di server (Invalid Format/HTML response). Cek Console.",
-            type: "danger",
-            cancelText: "Tutup"
-          });
-          setModalVisible(true);
-          setLoading(false);
-          return;
-        }
         throw new Error(textResponse);
       }
 
       if (res.ok) {
+
+        await scheduleVTReminder(namaPasien);
         setModalContent({
           title: "Sukses",
-          message: "Data Observasi 4 Jam berhasil disimpan.",
+          message: "Data Periksa Dalam berhasil disimpan.",
           type: "success",
           cancelText: "OK",
-          onConfirm: () => {
-            setModalVisible(false);
-            navigate(-1);
-          },
           onClose: () => {
             setModalVisible(false);
             navigate(-1);
-          }
+          },
         });
         setModalVisible(true);
       } else {
         setModalContent({
           title: "Gagal",
-          message: json.message || "Terjadi kesalahan pada server.",
+          message: json.message || "Terjadi kesalahan.",
           type: "danger",
-          cancelText: "Tutup"
+          cancelText: "Tutup",
         });
         setModalVisible(true);
       }
     } catch (error) {
       setModalContent({
         title: "Error",
-        message: "Gagal terhubung ke server. Cek koneksi internet.",
+        message: "Gagal terhubung ke server.",
         type: "danger",
-        cancelText: "Tutup"
+        cancelText: "Tutup",
       });
       setModalVisible(true);
-      console.log(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Opsi Pembukaan 4 - 10 (Fase Aktif)
   const pembukaanOptions = Array.from({ length: 7 }, (_, i) => ({
     label: (i + 4).toString(),
-    value: (i + 4).toString()
+    value: (i + 4).toString(),
   }));
-
-  // Opsi Penurunan Kepala 0 - 5
-  const penurunanOptions = ["0", "1", "2", "3", "4", "5"].map((val) => ({
+  const penurunanOptions = ["5", "4", "3", "2", "1", "0"].map((val) => ({
     label: val,
-    value: val
+    value: val,
   }));
-
-  // Opsi Penyusupan 0 - 3
   const penyusupanOptions = [
     { label: "0", value: "0" },
     { label: "1", value: "1" },
     { label: "2", value: "2" },
-    { label: "3", value: "3" }
+    { label: "3", value: "3" },
   ];
+
+  // Logic Render Deskripsi Molase
+  const molaseDesc = getMolaseDescription(form.penyusupan);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={THEME.bg} />
-
-      {/* MODAL KUSTOM */}
       <CustomAlertModal
         isVisible={modalVisible}
-        onClose={() => {
-          if (modalContent.onClose) {
-            modalContent.onClose();
-          } else {
-            setModalVisible(false);
-          }
-        }}
+        onClose={() =>
+          modalContent.onClose ? modalContent.onClose() : setModalVisible(false)
+        }
         title={modalContent.title}
         message={modalContent.message}
         type={modalContent.type}
@@ -434,7 +426,7 @@ export default function Per4jam() {
         <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
         </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Observasi Lanjutan (4 Jam)</Text>
+        <Text style={styles.appBarTitle}>Periksa Dalam</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -446,7 +438,7 @@ export default function Per4jam() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* ==== WAKTU CATAT ==== */}
+          {/* WAKTU CATAT */}
           <View style={styles.medicalCard}>
             <Text style={styles.fieldLabel}>Waktu Catat</Text>
             <TouchableOpacity
@@ -480,7 +472,6 @@ export default function Per4jam() {
               <Text style={styles.cardTitle}>STATUS SERVIKS & KEPALA</Text>
             </View>
 
-            {/* Pembukaan Serviks */}
             <MedicalChipPicker
               label="Pembukaan Serviks (cm)"
               value={form.pembukaan}
@@ -488,7 +479,6 @@ export default function Per4jam() {
               options={pembukaanOptions}
             />
 
-            {/* Penurunan Kepala */}
             <MedicalChipPicker
               label="Penurunan Kepala (per 5)"
               value={form.penurunan}
@@ -496,16 +486,40 @@ export default function Per4jam() {
               options={penurunanOptions}
             />
 
-            {/* Penyusupan */}
+            {/* --- REVISI MOLASE --- */}
             <MedicalChipPicker
               label="Penyusupan (Molase)"
               value={form.penyusupan}
               onChange={(v) => handleChange("penyusupan", v)}
               options={penyusupanOptions}
             />
+
+            {/* DESKRIPSI DINAMIS MOLASE */}
+            {molaseDesc && (
+              <View
+                style={[
+                  styles.molaseInfo,
+                  {
+                    backgroundColor: molaseDesc.bg,
+                    borderColor: molaseDesc.color,
+                  },
+                ]}
+              >
+                <Feather
+                  name={molaseDesc.icon}
+                  size={18}
+                  color={molaseDesc.color}
+                  style={{ marginRight: 8, marginTop: 2 }}
+                />
+                <Text style={[styles.molaseText, { color: molaseDesc.color }]}>
+                  {molaseDesc.text}
+                </Text>
+              </View>
+            )}
+            {/* --------------------- */}
           </View>
 
-          {/* SECTION 2: FLUIDS (KETUBAN) */}
+          {/* SECTION 2: FLUIDS */}
           <View style={styles.medicalCard}>
             <View style={styles.cardHeader}>
               <MaterialCommunityIcons
@@ -517,7 +531,6 @@ export default function Per4jam() {
                 CAIRAN KETUBAN
               </Text>
             </View>
-
             <MedicalChipPicker
               label="Kondisi / Warna"
               value={form.warnaKetuban}
@@ -527,12 +540,12 @@ export default function Per4jam() {
                 { label: "Ketuban Belum Pecah (U)", value: "U" },
                 { label: "Mekonium (M)", value: "M" },
                 { label: "Darah (D)", value: "D" },
-                { label: "Kering (K)", value: "K" }
+                { label: "Kering (K)", value: "K" },
               ]}
             />
           </View>
 
-          {/* SECTION 3: MATERNAL VITALS (INPUT DIPISAH) */}
+          {/* SECTION 3: VITALS */}
           <View style={styles.medicalCard}>
             <View style={styles.cardHeader}>
               <MaterialCommunityIcons name="doctor" size={20} color="#C2185B" />
@@ -540,8 +553,6 @@ export default function Per4jam() {
                 KONDISI IBU
               </Text>
             </View>
-
-            {/* Baris 1: Sistolik & Diastolik Sebelahan */}
             <View style={styles.inputRow}>
               <View style={styles.halfInput}>
                 <Text style={styles.fieldLabel}>Sistolik (mmHg)</Text>
@@ -550,7 +561,6 @@ export default function Per4jam() {
                   value={form.sistolik}
                   onChangeText={(t) => handleChange("sistolik", t)}
                   placeholder="120"
-                  placeholderTextColor="#B0BEC5"
                   keyboardType="numeric"
                 />
               </View>
@@ -561,13 +571,10 @@ export default function Per4jam() {
                   value={form.diastolik}
                   onChangeText={(t) => handleChange("diastolik", t)}
                   placeholder="80"
-                  placeholderTextColor="#B0BEC5"
                   keyboardType="numeric"
                 />
               </View>
             </View>
-
-            {/* Baris 2: Suhu (Jarak ke atas) */}
             <View style={{ marginTop: 16 }}>
               <Text style={styles.fieldLabel}>Suhu Tubuh (°C)</Text>
               <TextInput
@@ -576,12 +583,10 @@ export default function Per4jam() {
                 value={form.suhu}
                 onChangeText={(t) => handleChange("suhu", t)}
                 placeholder="36.5"
-                placeholderTextColor="#B0BEC5"
               />
             </View>
           </View>
 
-          {/* TOMBOL SUBMIT */}
           <TouchableOpacity
             style={styles.submitBlockBtn}
             onPress={handleSubmit}
@@ -619,10 +624,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0"
+    borderBottomColor: "#E0E0E0",
   },
   appBarTitle: { fontSize: 16, fontWeight: "700", color: THEME.textMain },
-  saveLink: { fontSize: 14, fontWeight: "bold", color: THEME.primary },
   backBtn: { padding: 4 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   medicalCard: {
@@ -632,10 +636,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: THEME.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    elevation: 1
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: "row",
@@ -643,14 +644,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
-    paddingBottom: 8
+    paddingBottom: 8,
   },
   cardTitle: {
     fontSize: 13,
     fontWeight: "700",
     color: THEME.primary,
     marginLeft: 8,
-    letterSpacing: 0.5
   },
   inputRow: { flexDirection: "row", justifyContent: "space-between" },
   halfInput: { width: "48%" },
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: THEME.textSec,
-    marginBottom: 8
+    marginBottom: 8,
   },
   medInput: {
     borderWidth: 1,
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
     backgroundColor: THEME.inputBg,
-    color: THEME.textMain
+    color: THEME.textMain,
   },
   chipContainer: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
@@ -683,11 +683,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
     backgroundColor: "#FFF",
-    minWidth: 48
+    minWidth: 48,
   },
   chipActive: {
     backgroundColor: THEME.chipActive,
-    borderColor: THEME.chipActive
+    borderColor: THEME.chipActive,
   },
   chipText: { fontSize: 13, color: THEME.textSec, fontWeight: "600" },
   chipTextActive: { color: "#FFF", fontWeight: "bold" },
@@ -700,27 +700,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 8,
     marginBottom: 30,
-    shadowColor: THEME.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    elevation: 4
+    elevation: 4,
   },
-  submitBtnText: {
-    color: "#FFF",
+  submitBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 },
+
+  // Style khusus Info Molase
+  molaseInfo: {
+    marginTop: -8,
+    marginBottom: 16,
+    flexDirection: "row",
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "flex-start",
+  },
+  molaseText: {
+    fontSize: 12,
     fontWeight: "bold",
-    fontSize: 14,
-    letterSpacing: 0.5
-  }
+    flex: 1,
+  },
 });
 
-// ------------------ STYLES: CUSTOM MODAL ------------------
 const modalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
   },
   alertBox: {
     width: "100%",
@@ -728,11 +735,7 @@ const modalStyles = StyleSheet.create({
     borderRadius: 18,
     padding: 30,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 10
+    elevation: 10,
   },
   iconCircle: {
     width: 60,
@@ -740,26 +743,26 @@ const modalStyles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15
+    marginBottom: 15,
   },
   title: {
     fontSize: 20,
     fontWeight: "bold",
     color: THEME.textMain,
     marginBottom: 10,
-    textAlign: "center"
+    textAlign: "center",
   },
   message: {
     fontSize: 15,
     color: THEME.textMain,
     textAlign: "center",
     marginBottom: 30,
-    lineHeight: 22
+    lineHeight: 22,
   },
   buttonContainer: {
     flexDirection: "row",
     width: "100%",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   button: {
     paddingVertical: 14,
@@ -767,25 +770,25 @@ const modalStyles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 120,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   buttonText: {
     color: "#FFF",
     fontWeight: "bold",
     fontSize: 14,
-    textAlign: "center"
+    textAlign: "center",
   },
   ghostButton: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: THEME.border,
     minWidth: 120,
-    marginRight: 10
+    marginRight: 10,
   },
   ghostButtonText: {
     color: THEME.textMain,
     fontWeight: "600",
     fontSize: 14,
-    textAlign: "center"
-  }
+    textAlign: "center",
+  },
 });

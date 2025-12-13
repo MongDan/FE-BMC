@@ -22,7 +22,15 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.FEBMC"
+      "package": "com.anonymous.FEBMC",
+      "useNextNotificationsApi": true,
+      "permissions": [
+        "android.permission.NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,17 +40,6 @@
         "projectId": "d9cbd2ce-f9be-4764-ac6f-26f71ea694be"
       }
     },
-    "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "enableProGuardInReleaseBuilds": true,
-            "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
-          }
-        }
-      ]
-    ]
+    "plugins": []
   }
 }
