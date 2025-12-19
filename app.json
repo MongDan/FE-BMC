@@ -29,17 +29,28 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM",
         "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [],
     "extra": {
       "eas": {
-        "projectId": "d9cbd2ce-f9be-4764-ac6f-26f71ea694be"
+        "projectId": "47244ab9-a91b-410c-a6a2-c914e78c54c4"
       }
     },
-    "plugins": []
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/47244ab9-a91b-410c-a6a2-c914e78c54c4"
+    }
   }
 }

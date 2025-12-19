@@ -353,8 +353,8 @@ export default function Per4jam() {
       }
 
       if (res.ok) {
-
-        await scheduleVTReminder(namaPasien);
+        // Kirim waktuCatat ke fungsi notifikasi
+        await scheduleVTReminder(namaPasien, waktuCatat);
         setModalContent({
           title: "Sukses",
           message: "Data Periksa Dalam berhasil disimpan.",
@@ -378,7 +378,7 @@ export default function Per4jam() {
     } catch (error) {
       setModalContent({
         title: "Error",
-        message: "Gagal terhubung ke server.",
+        message: "Gagal terhubung ke server." + error.message,
         type: "danger",
         cancelText: "Tutup",
       });

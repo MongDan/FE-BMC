@@ -21,9 +21,13 @@ import KondisiJanin from "./page/HasilInputPartograf/KondisiJanin";
 import PartografView from "./page/View/PartografView";
 import TambahEdukasi from "./page/KontenEdukasi/TambahEdukasi";
 import LihatEdukasi from "./page/KontenEdukasi/LihatEdukasi";
+import { registerForPushNotificationsAsync } from "./src/NotificationService";
 
 
 export default function App() {
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

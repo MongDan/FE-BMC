@@ -135,7 +135,8 @@ export default function Per30Menit() {
       const json = await res.json();
 
       if (res.ok) {
-        await scheduleRutinReminder(namaPasien);
+        // Kirim waktuCatat ke fungsi notifikasi
+        await scheduleRutinReminder(namaPasien, waktuCatat);
         Alert.alert("Berhasil", "Data Pantau Rutin tersimpan.", [
           { text: "OK", onPress: () => navigate(-1) },
         ]);
