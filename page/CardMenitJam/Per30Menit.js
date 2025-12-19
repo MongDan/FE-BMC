@@ -6,22 +6,25 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   TextInput,
   StatusBar,
+  Modal,
+  Pressable // Tambahan untuk Modal
 } from "react-native";
 import {
   MaterialIcons,
   MaterialCommunityIcons,
   Ionicons,
+  Feather // Tambahan untuk Icon Modal
 } from "@expo/vector-icons";
 import { useParams, useNavigate } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { scheduleRutinReminder } from "../../src/NotificationService"; // Sesuaikan path
+import { scheduleRutinReminder } from "../../src/NotificationService";
 
+// --- UPDATE THEME (Supaya support warna Success/Danger/Warning Modal) ---
 const THEME = {
   bg: "#F4F6F8",
   card: "#FFFFFF",
@@ -31,6 +34,10 @@ const THEME = {
   textSec: "#78909C",
   border: "#CFD8DC",
   inputBg: "#FAFAFA",
+  // Tambahan warna untuk Modal
+  success: "#2E7D32",
+  danger: "#E53935",
+  warning: "#FFB300"
 };
 
 const toLocalISOString = (date) => {
@@ -38,6 +45,95 @@ const toLocalISOString = (date) => {
   const localTime = new Date(date.getTime() - tzOffset);
   return localTime.toISOString().slice(0, -1);
 };
+
+// ======================= COMPONENT: CUSTOM MODAL ALERT ==========================
+// (Diambil langsung dari desain Per4jam yang Anda berikan)
+function CustomAlertModal({
+  isVisible,
+  onClose,
+  title,
+  message,
+  type = "info",
+  confirmText,
+  onConfirm,
+  cancelText = "Tutup"
+}) {
+  const iconMap = {
+    danger: { name: "alert-triangle", color: THEME.danger },
+    success: { name: "check-circle", color: THEME.success },
+    info: { name: "info", color: THEME.primary },
+    confirm: { name: "help-circle", color: THEME.warning }
+  };
+
+  const { name, color: iconColor } = iconMap[type] || iconMap.info;
+  const mainButtonColor =
+    type === "confirm" || type === "success" ? THEME.primary : iconColor;
+  const singleButtonColor = iconColor;
+
+  return (
+    <Modal
+      transparent={true}
+      visible={isVisible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.backdrop}>
+        <View style={modalStyles.alertBox}>
+          <View
+            style={[
+              modalStyles.iconCircle,
+              { backgroundColor: iconColor + "15" }
+            ]}
+          >
+            <Feather name={name} size={30} color={iconColor} />
+          </View>
+          <Text style={modalStyles.title}>{title}</Text>
+          <Text style={modalStyles.message}>{message}</Text>
+          <View style={modalStyles.buttonContainer}>
+            {type === "confirm" ? (
+              <>
+                <Pressable
+                  style={[
+                    modalStyles.button,
+                    modalStyles.ghostButton,
+                    { flex: 1 }
+                  ]}
+                  onPress={onClose}
+                >
+                  <Text style={modalStyles.ghostButtonText}>{cancelText}</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    modalStyles.button,
+                    {
+                      backgroundColor: mainButtonColor,
+                      flex: 1,
+                      marginLeft: 10
+                    }
+                  ]}
+                  onPress={onConfirm}
+                >
+                  <Text style={modalStyles.buttonText}>{confirmText}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                style={[
+                  modalStyles.button,
+                  { backgroundColor: singleButtonColor, minWidth: "50%" }
+                ]}
+                onPress={onClose}
+              >
+                <Text style={modalStyles.buttonText}>{cancelText}</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+// ============================================================================
 
 export default function Per30Menit() {
   const { id } = useParams();
@@ -54,18 +150,47 @@ export default function Per30Menit() {
   const [djj, setDjj] = useState("");
   const [nadi, setNadi] = useState("");
 
-  // TAMBAHAN: INPUT MANUAL KONTRAKSI
   const [hisFrekuensi, setHisFrekuensi] = useState("");
   const [hisDurasi, setHisDurasi] = useState("");
 
   const [isPickerVisible, setPickerVisible] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
 
+  // --- STATE UNTUK CUSTOM MODAL ---
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalContent, setModalContent] = useState({
+    title: "",
+    message: "",
+    type: "info", // info, success, danger, warning, confirm
+    onConfirm: null,
+    confirmText: "Ya",
+    cancelText: "Tutup",
+    onClose: null // Custom close handler (opsional)
+  });
+
+  // Fungsi Helper untuk mempermudah pemanggilan modal
+  const showCustomAlert = (
+    title,
+    message,
+    type = "info",
+    customOnClose = null
+  ) => {
+    setModalContent({
+      title,
+      message,
+      type,
+      confirmText: "OK",
+      cancelText: "Tutup",
+      onConfirm: null,
+      onClose: customOnClose // Callback jika tombol tutup/ok ditekan
+    });
+    setModalVisible(true);
+  };
+
   useEffect(() => {
     const init = async () => {
       const token = await AsyncStorage.getItem("userToken");
       setUserToken(token);
-      // Cek Draft Monitor
       const draftKey = `kontraksi_draft_${id}`;
       const draftData = await AsyncStorage.getItem(draftKey);
       if (draftData && JSON.parse(draftData).length > 0) setHasDraft(true);
@@ -73,25 +198,21 @@ export default function Per30Menit() {
     init();
   }, [id]);
 
-  // --- VALIDASI KHUSUS FREKUENSI ---
   const handleFrekuensiChange = (text) => {
-    // 1. Cek kosong
     if (text === "") {
       setHisFrekuensi("");
       return;
     }
-    // 2. Pastikan angka
     const num = parseInt(text);
     if (isNaN(num)) return;
 
-    // 3. Validasi Batas Standar WHO (Max 5)
     if (num > 5) {
-      Alert.alert(
+      // Gunakan Modal Warning
+      showCustomAlert(
         "Nilai Tidak Valid",
         "Maksimal frekuensi kontraksi adalah 5 kali dalam 10 menit (Tachysystole).",
-        [{ text: "OK" }]
+        "warning"
       );
-      // Reset ke 5 atau biarkan angka terakhir yang valid
       setHisFrekuensi("5");
     } else {
       setHisFrekuensi(text);
@@ -101,13 +222,18 @@ export default function Per30Menit() {
   const submitVitals = async () => {
     // Validasi Basic
     if (!djj || !nadi)
-      return Alert.alert("Form Kosong", "Minimal isi DJJ dan Nadi.");
+      return showCustomAlert(
+        "Form Kosong",
+        "Minimal isi DJJ dan Nadi.",
+        "danger"
+      );
 
-    // Validasi Double Check saat Submit
+    // Validasi Double Check
     if (hisFrekuensi && parseInt(hisFrekuensi) > 5) {
-      return Alert.alert(
+      return showCustomAlert(
         "Validasi Gagal",
-        "Frekuensi kontraksi tidak boleh lebih dari 5."
+        "Frekuensi kontraksi tidak boleh lebih dari 5.",
+        "warning"
       );
     }
 
@@ -120,7 +246,7 @@ export default function Per30Menit() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}`,
+            Authorization: `Bearer ${userToken}`
           },
           body: JSON.stringify({
             partograf_id: id,
@@ -128,23 +254,29 @@ export default function Per30Menit() {
             djj: djj,
             nadi_ibu: nadi,
             kontraksi_frekuensi: hisFrekuensi ? parseInt(hisFrekuensi) : null,
-            kontraksi_durasi: hisDurasi ? parseInt(hisDurasi) : null,
-          }),
+            kontraksi_durasi: hisDurasi ? parseInt(hisDurasi) : null
+          })
         }
       );
       const json = await res.json();
 
       if (res.ok) {
-        // Kirim waktuCatat ke fungsi notifikasi
         await scheduleRutinReminder(namaPasien, waktuCatat);
-        Alert.alert("Berhasil", "Data Pantau Rutin tersimpan.", [
-          { text: "OK", onPress: () => navigate(-1) },
-        ]);
+        // SUKSES: Tampilkan modal success, lalu navigasi back saat ditutup
+        showCustomAlert(
+          "Berhasil",
+          "Data Pantau Rutin tersimpan.",
+          "success",
+          () => {
+            setModalVisible(false);
+            navigate(-1);
+          }
+        );
       } else {
-        Alert.alert("Gagal", json.message);
+        showCustomAlert("Gagal", json.message, "danger");
       }
     } catch (e) {
-      Alert.alert("Error", "Gagal menghubungi server.");
+      showCustomAlert("Error", "Gagal menghubungi server.", "danger");
     } finally {
       setLoading(false);
     }
@@ -157,6 +289,26 @@ export default function Per30Menit() {
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
+
+      {/* --- IMPLEMENTASI CUSTOM ALERT MODAL BARU --- */}
+      <CustomAlertModal
+        isVisible={modalVisible}
+        onClose={() => {
+          if (modalContent.onClose) {
+            modalContent.onClose();
+          } else {
+            setModalVisible(false);
+          }
+        }}
+        title={modalContent.title}
+        message={modalContent.message}
+        type={modalContent.type}
+        confirmText={modalContent.confirmText}
+        onConfirm={modalContent.onConfirm}
+        cancelText={modalContent.cancelText}
+      />
+      {/* ------------------------------------------- */}
+
       <View style={styles.appBar}>
         <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color={THEME.textMain} />
@@ -226,8 +378,8 @@ export default function Per30Menit() {
                 keyboardType="numeric"
                 placeholder="3"
                 value={hisFrekuensi}
-                onChangeText={handleFrekuensiChange} // <--- GANTI DISINI
-                maxLength={1} // Extra safety: cuma bisa 1 digit
+                onChangeText={handleFrekuensiChange}
+                maxLength={1}
               />
             </View>
             <View style={{ width: 16 }} />
@@ -308,7 +460,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: "#E0E0E0"
   },
   appBarTitle: { fontSize: 16, fontWeight: "700", color: THEME.textMain },
 
@@ -320,7 +472,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    elevation: 3,
+    elevation: 3
   },
   quickTitle: { color: "#FFF", fontSize: 14, fontWeight: "bold" },
   quickSubtitle: { color: "#CFD8DC", fontSize: 11 },
@@ -331,7 +483,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: THEME.border,
-    elevation: 2,
+    elevation: 2
   },
   cardHeader: {
     flexDirection: "row",
@@ -339,7 +491,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
-    paddingBottom: 8,
+    paddingBottom: 8
   },
   cardTitle: { fontSize: 13, fontWeight: "700", marginLeft: 8 },
 
@@ -349,7 +501,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: THEME.textMain,
-    marginBottom: 8,
+    marginBottom: 8
   },
   subLabel: { fontSize: 11, color: THEME.textSec, marginBottom: 4 },
 
@@ -360,7 +512,7 @@ const styles = StyleSheet.create({
     borderColor: THEME.border,
     borderRadius: 4,
     backgroundColor: THEME.inputBg,
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
   input: {
     borderWidth: 1,
@@ -369,7 +521,7 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     backgroundColor: THEME.inputBg,
-    color: THEME.textMain,
+    color: THEME.textMain
   },
 
   divider: { height: 1, backgroundColor: "#EEEEEE", marginVertical: 16 },
@@ -379,7 +531,80 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingVertical: 14,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 20
   },
-  saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 },
+  saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 }
+});
+
+// --- STYLES KHUSUS MODAL BARU (Disalin dari source) ---
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingHorizontal: 20
+  },
+  alertBox: {
+    width: "100%",
+    backgroundColor: THEME.card,
+    borderRadius: 18,
+    padding: 30,
+    alignItems: "center",
+    elevation: 10
+  },
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: THEME.textMain,
+    marginBottom: 10,
+    textAlign: "center"
+  },
+  message: {
+    fontSize: 15,
+    color: THEME.textMain,
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 22
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "center"
+  },
+  button: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    minWidth: 120,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  buttonText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 14,
+    textAlign: "center"
+  },
+  ghostButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: THEME.border,
+    minWidth: 120,
+    marginRight: 10
+  },
+  ghostButtonText: {
+    color: THEME.textMain,
+    fontWeight: "600",
+    fontSize: 14,
+    textAlign: "center"
+  }
 });

@@ -7,14 +7,19 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
-    Alert, // Dibiarkan untuk Alert Error yang tidak diganti
     ScrollView,
     SafeAreaView,
     Platform,
     StatusBar,
-    KeyboardAvoidingView
+    KeyboardAvoidingView,
+    Pressable // Tambahan
 } from "react-native";
-import { Ionicons, FontAwesome, MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
+import { 
+    Ionicons, 
+    MaterialIcons, 
+    FontAwesome5, 
+    Feather // Tambahan
+} from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigate } from "react-router-native";
 
@@ -29,8 +34,101 @@ const THEME = {
     border: "#ECEFF1",
     inputBg: "#FAFAFA",
     danger: "#EF5350",
-    success: "#66BB6A"
+    success: "#66BB6A",
+    warning: "#FFB300", // Tambahan
+    card: "#FFFFFF", // Tambahan untuk Modal
 };
+
+// ======================= COMPONENT: CUSTOM MODAL ALERT ==========================
+function CustomAlertModal({
+    isVisible,
+    onClose,
+    title,
+    message,
+    type = "info",
+    confirmText,
+    onConfirm,
+    cancelText = "Batal",
+}) {
+    const iconMap = {
+        danger: { name: "alert-triangle", color: THEME.danger },
+        success: { name: "check-circle", color: THEME.success },
+        info: { name: "info", color: THEME.primary },
+        confirm: { name: "help-circle", color: THEME.warning }, // Icon tanya untuk konfirmasi
+        logout: { name: "log-out", color: THEME.danger }, // Khusus logout
+    };
+
+    const { name, color: iconColor } = iconMap[type] || iconMap.info;
+    
+    // Tentukan warna tombol utama
+    let mainButtonColor = iconColor;
+    if (type === "confirm") mainButtonColor = THEME.primary;
+    if (type === "logout") mainButtonColor = THEME.danger;
+
+    return (
+        <Modal
+            transparent={true}
+            visible={isVisible}
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <View style={alertStyles.backdrop}>
+                <View style={alertStyles.alertBox}>
+                    <View
+                        style={[
+                            alertStyles.iconCircle,
+                            { backgroundColor: iconColor + "15" },
+                        ]}
+                    >
+                        <Feather name={name} size={30} color={iconColor} />
+                    </View>
+                    <Text style={alertStyles.title}>{title}</Text>
+                    <Text style={alertStyles.message}>{message}</Text>
+                    <View style={alertStyles.buttonContainer}>
+                        {/* Jika ada onConfirm, tampilkan 2 tombol */}
+                        {onConfirm ? (
+                            <>
+                                <Pressable
+                                    style={[
+                                        alertStyles.button,
+                                        alertStyles.ghostButton,
+                                        { flex: 1 },
+                                    ]}
+                                    onPress={onClose}
+                                >
+                                    <Text style={alertStyles.ghostButtonText}>{cancelText}</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[
+                                        alertStyles.button,
+                                        {
+                                            backgroundColor: mainButtonColor,
+                                            flex: 1,
+                                            marginLeft: 10,
+                                        },
+                                    ]}
+                                    onPress={onConfirm}
+                                >
+                                    <Text style={alertStyles.buttonText}>{confirmText}</Text>
+                                </Pressable>
+                            </>
+                        ) : (
+                            <Pressable
+                                style={[
+                                    alertStyles.button,
+                                    { backgroundColor: mainButtonColor, minWidth: "50%" },
+                                ]}
+                                onPress={onClose}
+                            >
+                                <Text style={alertStyles.buttonText}>{cancelText === "Batal" ? "Tutup" : cancelText}</Text>
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
 
 export default function ProfileScreen({ style }) {
     const navigate = useNavigate();
@@ -54,17 +152,21 @@ export default function ProfileScreen({ style }) {
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [isApiLoading, setIsApiLoading] = useState(false);
     
-    // 💡 NEW MODAL STATES
-    const [showError, setShowError] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("");
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
-    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // 👈 Konfirmasi Logout
+    // --- STATE UNTUK CUSTOM MODAL ---
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertConfig, setAlertConfig] = useState({
+        title: "",
+        message: "",
+        type: "info",
+        onConfirm: null,
+        confirmText: "Ya",
+        cancelText: "Tutup"
+    });
 
-    const closeModal = () => {
-        setShowError(false);
-        setShowSuccess(false);
-        setShowLogoutConfirm(false); // Tambahkan ini
+    // Fungsi Helper Alert
+    const showCustomAlert = (title, message, type = "info", onConfirm = null, confirmText = "Ya", cancelText = "Tutup") => {
+        setAlertConfig({ title, message, type, onConfirm, confirmText, cancelText });
+        setAlertVisible(true);
     };
 
     // 🔹 Load user data dari API
@@ -76,7 +178,7 @@ export default function ProfileScreen({ style }) {
 
             if (!token) throw new Error("Token tidak ditemukan");
 
-            const res = await fetch("https://restful-api-bmc-production.up.railway.app/api/profile", {
+            const res = await fetch("https://restful-api-bmc-production-v2.up.railway.app/api/profile", {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await res.json();
@@ -103,13 +205,11 @@ export default function ProfileScreen({ style }) {
     // 🔹 Update Password
     const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            setErrorMessage("Harap isi semua kolom password.");
-            setShowError(true);
+            showCustomAlert("Gagal", "Harap isi semua kolom password.", "danger");
             return;
         }
         if (newPassword !== confirmPassword) {
-            setErrorMessage("Password baru dan konfirmasi tidak cocok.");
-            setShowError(true);
+            showCustomAlert("Gagal", "Password baru dan konfirmasi tidak cocok.", "danger");
             return;
         }
 
@@ -122,7 +222,7 @@ export default function ProfileScreen({ style }) {
             });
 
             const response = await fetch(
-                "https://restful-api-bmc-production.up.railway.app/api/profile/ubah-password",
+                "https://restful-api-bmc-production-v2.up.railway.app/api/profile/ubah-password",
                 {
                     method: "PUT",
                     headers: {
@@ -140,8 +240,8 @@ export default function ProfileScreen({ style }) {
                 throw new Error(data.message || "Gagal mengubah password.");
             }
 
-            setSuccessMessage("Password Anda telah berhasil diperbarui!");
-            setShowSuccess(true);
+            // SUKSES
+            showCustomAlert("Berhasil", "Password Anda telah berhasil diperbarui!", "success");
             
             setPasswordModalVisible(false);
             setCurrentPassword("");
@@ -151,8 +251,7 @@ export default function ProfileScreen({ style }) {
             setShowNewPassword(false);
             setShowConfirmPassword(false);
         } catch (error) {
-            setErrorMessage(error.message);
-            setShowError(true);
+            showCustomAlert("Error", error.message, "danger");
         } finally {
             setIsApiLoading(false);
         }
@@ -162,8 +261,7 @@ export default function ProfileScreen({ style }) {
     const handleChangeUsername = async () => {
         const trimmedName = newUsername.trim();
         if (!trimmedName) {
-            setErrorMessage("Username tidak boleh kosong.");
-            setShowError(true);
+            showCustomAlert("Gagal", "Username tidak boleh kosong.", "danger");
             return;
         }
         if (trimmedName === username) {
@@ -175,7 +273,7 @@ export default function ProfileScreen({ style }) {
         try {
             const body = JSON.stringify({ username: trimmedName });
 
-            const response = await fetch("https://restful-api-bmc-production.up.railway.app/api/profile", {
+            const response = await fetch("https://restful-api-bmc-production-v2.up.railway.app/api/profile", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -193,13 +291,11 @@ export default function ProfileScreen({ style }) {
 
             await AsyncStorage.setItem("userName", trimmedName);
             setUsername(trimmedName);
-            setSuccessMessage("Username Anda berhasil diubah!");
-            setShowSuccess(true);
             
+            showCustomAlert("Berhasil", "Username Anda berhasil diubah!", "success");
             setUsernameModalVisible(false);
         } catch (error) {
-            setErrorMessage(error.message);
-            setShowError(true);
+            showCustomAlert("Error", error.message, "danger");
         } finally {
             setIsApiLoading(false);
         }
@@ -238,19 +334,25 @@ export default function ProfileScreen({ style }) {
     
     // 🔹 Logout Handler
     const handleLogout = async () => {
-        setShowLogoutConfirm(true); // 👈 Tampilkan Modal Konfirmasi
+        showCustomAlert(
+            "Konfirmasi Logout",
+            "Apakah Anda yakin ingin keluar dari sesi ini?",
+            "logout",
+            confirmLogout,
+            "Keluar",
+            "Batal"
+        );
     };
     
     // 🔹 Proses Logout Setelah Konfirmasi
     const confirmLogout = async () => {
+        setAlertVisible(false); // Tutup modal dulu
         try {
             await AsyncStorage.removeItem("userToken");
             await AsyncStorage.removeItem("userName");
             navigate("/", { replace: true });
         } catch (error) {
-            Alert.alert("Error", "Gagal memproses logout."); // Gunakan Alert karena ini error internal
-        } finally {
-            setShowLogoutConfirm(false);
+            showCustomAlert("Error", "Gagal memproses logout.", "danger");
         }
     };
 
@@ -258,74 +360,24 @@ export default function ProfileScreen({ style }) {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
             
-            {/* ================= MODAL ERROR ================= */}
-            <Modal
-                visible={showError}
-                transparent
-                animationType="fade"
-                onRequestClose={closeModal}
-            >
-                <View style={styles.feedbackOverlay}>
-                    <View style={styles.feedbackCardError}>
-                        <View style={styles.feedbackIconBoxError}>
-                            <MaterialIcons name="error-outline" size={40} color={THEME.danger} />
-                        </View>
-                        <Text style={styles.feedbackTitleError}>Gagal!</Text>
-                        <Text style={styles.feedbackSubtitle}>{errorMessage}</Text>
-                        <TouchableOpacity onPress={closeModal} style={styles.feedbackButtonError}>
-                            <Text style={styles.feedbackButtonText}>Tutup</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-            
-            {/* ================= MODAL SUCCESS ================= */}
-            <Modal
-                visible={showSuccess}
-                transparent
-                animationType="fade"
-                onRequestClose={closeModal}
-            >
-                <View style={styles.feedbackOverlay}>
-                    <View style={styles.feedbackCardSuccess}>
-                        <View style={styles.feedbackIconBoxSuccess}>
-                            <Ionicons name="checkmark-circle-outline" size={40} color={THEME.success} />
-                        </View>
-                        <Text style={styles.feedbackTitleSuccess}>Sukses!</Text>
-                        <Text style={styles.feedbackSubtitle}>{successMessage}</Text>
-                        <TouchableOpacity onPress={closeModal} style={styles.feedbackButtonSuccess}>
-                            <Text style={styles.feedbackButtonText}>OK</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* ================= MODAL KONFIRMASI LOGOUT ================= */}
-            <Modal
-                visible={showLogoutConfirm}
-                transparent
-                animationType="fade"
-                onRequestClose={closeModal}
-            >
-                <View style={styles.feedbackOverlay}>
-                    <View style={styles.logoutCard}>
-                        <View style={styles.logoutIconBox}>
-                            <MaterialIcons name="logout" size={40} color={THEME.danger} />
-                        </View>
-                        <Text style={styles.logoutTitle}>Konfirmasi Logout</Text>
-                        <Text style={styles.logoutSubtitle}>Apakah Anda yakin ingin keluar dari sesi ini?</Text>
-                        
-                        <View style={styles.logoutButtonContainer}>
-                            <TouchableOpacity onPress={closeModal} style={styles.logoutCancelButton}>
-                                <Text style={styles.logoutCancelButtonText}>Batal</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={confirmLogout} style={styles.logoutConfirmButton}>
-                                <Text style={styles.logoutConfirmButtonText}>Keluar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            {/* --- CUSTOM ALERT MODAL --- */}
+            <CustomAlertModal
+                isVisible={alertVisible}
+                onClose={() => {
+                    if (alertConfig.onConfirm) {
+                        // Jika dalam mode konfirmasi dan user klik luar/batal
+                        setAlertVisible(false);
+                    } else {
+                        setAlertVisible(false);
+                    }
+                }}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onConfirm={alertConfig.onConfirm}
+                confirmText={alertConfig.confirmText}
+                cancelText={alertConfig.cancelText}
+            />
             
             <ScrollView style={[styles.container, style]} contentContainerStyle={{ paddingBottom: 40 }}>
                 
@@ -545,7 +597,7 @@ const styles = StyleSheet.create({
     menuText: { flex: 1, fontSize: 15, fontWeight: "600", color: THEME.textMain },
     divider: { height: 1, backgroundColor: "#F5F5F5", marginLeft: 72 },
 
-    // MODAL INPUT STYLES
+    // MODAL INPUT STYLES (Untuk Username & Password)
     modalOverlay: {
         flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20
     },
@@ -580,62 +632,77 @@ const styles = StyleSheet.create({
         shadowColor: THEME.primary, shadowOffset: {width:0, height:4}, shadowOpacity: 0.2, elevation: 4
     },
     primaryButtonText: { color: "#FFF", fontSize: 14, fontWeight: "bold", letterSpacing: 0.5 },
-    
-    // ================= MODAL FEEDBACK STYLES (SUCCESS/ERROR) =================
-    feedbackOverlay: {
-        flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center"
+});
+
+// --- STYLES KHUSUS ALERT MODAL ---
+const alertStyles = StyleSheet.create({
+    backdrop: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        paddingHorizontal: 20,
     },
-    // Card Base
-    feedbackCardSuccess: {
-        width: "85%", backgroundColor: "#FFF", borderRadius: 16, padding: 30, alignItems: "center",
-        shadowColor: THEME.success, shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, elevation: 10
+    alertBox: {
+        width: "100%",
+        backgroundColor: THEME.card,
+        borderRadius: 18,
+        padding: 30,
+        alignItems: "center",
+        elevation: 10,
     },
-    feedbackCardError: {
-        width: "85%", backgroundColor: "#FFF", borderRadius: 16, padding: 30, alignItems: "center",
-        shadowColor: THEME.danger, shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, elevation: 10
+    iconCircle: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 15,
     },
-    // Icon
-    feedbackIconBoxSuccess: {
-        width: 70, height: 70, borderRadius: 35, backgroundColor: "#E8F5E9", // Light Green
-        justifyContent: "center", alignItems: "center", marginBottom: 20
+    title: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: THEME.textMain,
+        marginBottom: 10,
+        textAlign: "center",
     },
-    feedbackIconBoxError: {
-        width: 70, height: 70, borderRadius: 35, backgroundColor: "#FFEBEE", // Light Red
-        justifyContent: "center", alignItems: "center", marginBottom: 20
+    message: {
+        fontSize: 15,
+        color: THEME.textMain,
+        textAlign: "center",
+        marginBottom: 30,
+        lineHeight: 22,
     },
-    // Text
-    feedbackTitleSuccess: { fontSize: 20, fontWeight: "bold", color: THEME.success, marginBottom: 8 },
-    feedbackTitleError: { fontSize: 20, fontWeight: "bold", color: THEME.danger, marginBottom: 8 },
-    feedbackSubtitle: { fontSize: 14, color: THEME.textMain, textAlign: "center", marginBottom: 20 },
-    // Button
-    feedbackButtonSuccess: {
-        backgroundColor: THEME.success, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 30
+    buttonContainer: {
+        flexDirection: "row",
+        width: "100%",
+        justifyContent: "center",
     },
-    feedbackButtonError: {
-        backgroundColor: THEME.danger, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 30
+    button: {
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        minWidth: 120,
+        alignItems: "center",
+        justifyContent: "center",
     },
-    feedbackButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
-    
-    // ================= LOGOUT CONFIRMATION STYLES =================
-    logoutCard: {
-        width: "85%", backgroundColor: "#FFF", borderRadius: 16, padding: 30, alignItems: "center",
-        shadowColor: THEME.textMain, shadowOffset: {width:0, height:4}, shadowOpacity: 0.2, elevation: 10
+    buttonText: {
+        color: "#FFF",
+        fontWeight: "bold",
+        fontSize: 14,
+        textAlign: "center",
     },
-    logoutIconBox: {
-        width: 70, height: 70, borderRadius: 35, backgroundColor: "#F0F4F7", // Abu-abu sangat muda
-        justifyContent: "center", alignItems: "center", marginBottom: 20
+    ghostButton: {
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderColor: THEME.border,
+        minWidth: 120,
+        marginRight: 10,
     },
-    logoutTitle: { fontSize: 20, fontWeight: "bold", color: THEME.textMain, marginBottom: 8 },
-    logoutSubtitle: { fontSize: 14, color: THEME.textSec, textAlign: "center", marginBottom: 20 },
-    logoutButtonContainer: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', marginTop: 10 },
-    
-    logoutCancelButton: {
-        backgroundColor: THEME.border, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 30, flex: 1, marginEnd: 10, alignItems: 'center'
+    ghostButtonText: {
+        color: THEME.textMain,
+        fontWeight: "600",
+        fontSize: 14,
+        textAlign: "center",
     },
-    logoutCancelButtonText: { color: THEME.textMain, fontSize: 16, fontWeight: 'bold' },
-    
-    logoutConfirmButton: {
-        backgroundColor: THEME.danger, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 30, flex: 1, marginStart: 10, alignItems: 'center'
-    },
-    logoutConfirmButtonText: { color: "#FFF", fontSize: 16, fontWeight: 'bold' },
 });

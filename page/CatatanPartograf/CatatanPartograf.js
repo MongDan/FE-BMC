@@ -309,7 +309,7 @@ export default function CatatanPartograf() {
 
       for (const item of drafts) {
         await fetch(
-          `https://restful-api-bmc-production.up.railway.app/api/catatan-partograf/${newCatatanId}/kontraksi`,
+          `https://restful-api-bmc-production-v2.up.railway.app/api/catatan-partograf/${newCatatanId}/kontraksi`,
           {
             method: "POST",
             headers: {

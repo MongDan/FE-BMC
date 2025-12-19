@@ -5,19 +5,21 @@ import {
     StyleSheet,
     TouchableOpacity,
     ScrollView,
-    Alert,
+    // Alert, // Dihapus
     ActivityIndicator,
     StatusBar,
     Animated,
     Easing,
     Platform,
-    Modal
+    Modal,
+    Pressable // Tambahan
 } from "react-native";
 import {
     Ionicons,
     MaterialCommunityIcons,
     FontAwesome5,
-    MaterialIcons
+    MaterialIcons,
+    Feather // Tambahan
 } from "@expo/vector-icons";
 import { useNavigate, useParams } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -30,6 +32,8 @@ const THEME = {
     primary: "#0277BD",
     accent: "#C2185B",
     success: "#2E7D32",
+    danger: "#E53935", // Tambahan
+    warning: "#FFB300", // Tambahan
     textMain: "#263238",
     textSec: "#78909C",
     border: "#CFD8DC",
@@ -90,6 +94,93 @@ const groupHistoryBy10Minutes = (data) => {
     }));
 };
 
+// ================= COMPONENT: CUSTOM MODAL ALERT =================
+function CustomAlertModal({
+    isVisible,
+    onClose,
+    title,
+    message,
+    type = "info",
+    confirmText,
+    onConfirm,
+    cancelText = "Tutup",
+}) {
+    const iconMap = {
+        danger: { name: "alert-triangle", color: THEME.danger },
+        success: { name: "check-circle", color: THEME.success },
+        info: { name: "info", color: THEME.primary },
+        confirm: { name: "help-circle", color: THEME.warning },
+    };
+
+    const { name, color: iconColor } = iconMap[type] || iconMap.info;
+    const mainButtonColor =
+        type === "confirm" || type === "success" ? THEME.primary : iconColor;
+    const singleButtonColor = iconColor;
+
+    return (
+        <Modal
+            transparent={true}
+            visible={isVisible}
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <View style={alertStyles.backdrop}>
+                <View style={alertStyles.alertBox}>
+                    <View
+                        style={[
+                            alertStyles.iconCircle,
+                            { backgroundColor: iconColor + "15" },
+                        ]}
+                    >
+                        <Feather name={name} size={30} color={iconColor} />
+                    </View>
+                    <Text style={alertStyles.title}>{title}</Text>
+                    <Text style={alertStyles.message}>{message}</Text>
+                    <View style={alertStyles.buttonContainer}>
+                        {type === "confirm" ? (
+                            <>
+                                <Pressable
+                                    style={[
+                                        alertStyles.button,
+                                        alertStyles.ghostButton,
+                                        { flex: 1 },
+                                    ]}
+                                    onPress={onClose}
+                                >
+                                    <Text style={alertStyles.ghostButtonText}>{cancelText}</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[
+                                        alertStyles.button,
+                                        {
+                                            backgroundColor: mainButtonColor,
+                                            flex: 1,
+                                            marginLeft: 10,
+                                        },
+                                    ]}
+                                    onPress={onConfirm}
+                                >
+                                    <Text style={alertStyles.buttonText}>{confirmText}</Text>
+                                </Pressable>
+                            </>
+                        ) : (
+                            <Pressable
+                                style={[
+                                    alertStyles.button,
+                                    { backgroundColor: singleButtonColor, minWidth: "50%" },
+                                ]}
+                                onPress={onClose}
+                            >
+                                <Text style={alertStyles.buttonText}>{cancelText}</Text>
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
 // ================= MAIN COMPONENT =================
 const MonitorKontraksi = () => {
     const navigate = useNavigate();
@@ -101,14 +192,18 @@ const MonitorKontraksi = () => {
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [userToken, setUserToken] = useState(null);
-    const [showError, setShowError] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("Terjadi kesalahan koneksi.");
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+
+    // --- STATE UNTUK CUSTOM MODAL ---
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertConfig, setAlertConfig] = useState({
+        title: "",
+        message: "",
+        type: "info",
+        onConfirm: null,
+    });
 
     const intervalRef = useRef(null);
     const startTimeRef = useRef(null);
-
     const spinValue = useRef(new Animated.Value(0)).current;
     const pulseValue = useRef(new Animated.Value(1)).current;
 
@@ -116,8 +211,10 @@ const MonitorKontraksi = () => {
         ? `kontraksi_history_${catatanPartografId}`
         : `kontraksi_draft_${partografId}`;
 
-    const closeErrorModal = () => {
-        setShowError(false);
+    // Fungsi Helper Alert
+    const showCustomAlert = (title, message, type = "info", onConfirm = null) => {
+        setAlertConfig({ title, message, type, onConfirm });
+        setAlertVisible(true);
     };
 
     useEffect(() => {
@@ -137,7 +234,8 @@ const MonitorKontraksi = () => {
             try {
                 const token = await AsyncStorage.getItem("userToken");
                 if (!token && catatanPartografId) {
-                    Alert.alert("Info", "Mode Offline / Token tidak ditemukan");
+                    // GANTI ALERT BIASA
+                    showCustomAlert("Info", "Mode Offline / Token tidak ditemukan", "info");
                 }
                 setUserToken(token);
             } catch (err) {
@@ -221,8 +319,8 @@ const MonitorKontraksi = () => {
         setTime(fixedDurationMs);
 
         if (fixedDurationMs < 2000) {
-            setErrorMessage("Durasi kontraksi terlalu singkat (minimal 2 detik).");
-            setShowError(true);
+            // GANTI ALERT ERROR
+            showCustomAlert("Gagal", "Durasi kontraksi terlalu singkat (minimal 2 detik).", "danger");
             return;
         }
 
@@ -245,24 +343,24 @@ const MonitorKontraksi = () => {
                 const newHistory = [draftItem, ...history];
                 await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
                 setHistory(newHistory);
-                setSuccessMessage(`Data kontraksi (Durasi: ${kontraksi.durasi}) berhasil disimpan secara lokal.`);
-                setShowSuccessModal(true);
+                // GANTI ALERT SUCCESS
+                showCustomAlert("Berhasil", `Data kontraksi (Durasi: ${kontraksi.durasi}) berhasil disimpan secara lokal.`, "success");
             } catch (e) {
-                setErrorMessage("Gagal simpan data draft kontraksi di HP.");
-                setShowError(true);
+                // GANTI ALERT ERROR
+                showCustomAlert("Error", "Gagal simpan data draft kontraksi di HP.", "danger");
             }
             return;
         }
 
         if (!userToken) {
-            setErrorMessage("Sesi pengguna berakhir. Silakan login ulang.");
-            setShowError(true);
+            // GANTI ALERT ERROR
+            showCustomAlert("Gagal", "Sesi pengguna berakhir. Silakan login ulang.", "danger");
             return;
         }
         setIsLoading(true);
         try {
             const res = await fetch(
-                `https://restful-api-bmc-production.up.railway.app/api/catatan-partograf/${catatanPartografId}/kontraksi`,
+                `https://restful-api-bmc-production-v2.up.railway.app/api/catatan-partograf/${catatanPartografId}/kontraksi`,
                 {
                     method: "POST",
                     headers: {
@@ -280,11 +378,11 @@ const MonitorKontraksi = () => {
             let json = {};
             try {
                 json = JSON.parse(text);
-            } catch {}
+            } catch { }
 
             if (!res.ok) {
-                setErrorMessage(json.message || "Gagal menyimpan ke server.");
-                setShowError(true);
+                // GANTI ALERT ERROR
+                showCustomAlert("Gagal", json.message || "Gagal menyimpan ke server.", "danger");
                 return;
             }
 
@@ -298,11 +396,11 @@ const MonitorKontraksi = () => {
             const newHistory = [savedData, ...history];
             setHistory(newHistory);
             AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
-            setSuccessMessage(`Data berhasil dikirim ke server. Durasi: ${savedData.durasi}`);
-            setShowSuccessModal(true);
+            // GANTI ALERT SUCCESS
+            showCustomAlert("Berhasil", `Data berhasil dikirim ke server. Durasi: ${savedData.durasi}`, "success");
         } catch (err) {
-            setErrorMessage("Koneksi gagal. Cek jaringan internet Anda.");
-            setShowError(true);
+            // GANTI ALERT ERROR
+            showCustomAlert("Error", "Koneksi gagal. Cek jaringan internet Anda.", "danger");
         } finally {
             setIsLoading(false);
         }
@@ -313,54 +411,23 @@ const MonitorKontraksi = () => {
     return (
         <SafeAreaView style={styles.mainContainer}>
             <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
-            
-            {/* MODAL GAGAL (ERROR) */}
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={showError}
-                onRequestClose={closeErrorModal}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.errorBox}>
-                        <TouchableOpacity onPress={closeErrorModal} style={styles.closeBtn}>
-                            <FontAwesome5 name="times-circle" size={24} color="#D32F2F" />
-                        </TouchableOpacity>
-                        <View style={styles.iconCircleError}>
-                            <FontAwesome5 name="exclamation-triangle" size={40} color="#D32F2F" />
-                        </View>
-                        <Text style={styles.errorTitleModal}>Gagal!</Text>
-                        <Text style={styles.errorSubtitleModal}>{errorMessage}</Text>
-                        <TouchableOpacity onPress={closeErrorModal} style={styles.errorButton}>
-                            <Text style={styles.errorButtonText}>Tutup</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-            
-            {/* MODAL BERHASIL (SUCCESS) */}
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={showSuccessModal}
-                onRequestClose={() => setShowSuccessModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.successBoxModal}>
-                        <View style={styles.iconCircleSuccess}>
-                            <Ionicons name="checkmark-done" size={40} color={THEME.success} />
-                        </View>
-                        <Text style={styles.successTitleModal}>Kontraksi Tersimpan!</Text>
-                        <Text style={styles.successSubtitleModal}>{successMessage}</Text>
-                        <TouchableOpacity 
-                            onPress={() => setShowSuccessModal(false)} 
-                            style={styles.successButton}
-                        >
-                            <Text style={styles.successButtonText}>Lanjut Monitor</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+
+            {/* --- CUSTOM ALERT MODAL --- */}
+            <CustomAlertModal
+                isVisible={alertVisible}
+                onClose={() => {
+                    if (alertConfig.onConfirm) {
+                        alertConfig.onConfirm();
+                    } else {
+                        setAlertVisible(false);
+                    }
+                }}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onConfirm={alertConfig.onConfirm}
+                confirmText="OK"
+            />
 
             {/* === Header App Bar === */}
             <View style={styles.appBar}>
@@ -586,112 +653,6 @@ const MonitorKontraksi = () => {
 // ================= STYLES =================
 const styles = StyleSheet.create({
     mainContainer: { flex: 1, backgroundColor: THEME.bg },
-
-    // --- Modal Styles ---
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.4)",
-        justifyContent: "center",
-        alignItems: "center"
-    },
-    errorBox: {
-        width: "80%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        paddingVertical: 30,
-        paddingHorizontal: 20,
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 8
-    },
-    iconCircleError: {
-        width: 80,
-        height: 80,
-        backgroundColor: "#FFEBEE",
-        borderRadius: 40,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 20
-    },
-    errorTitleModal: {
-        fontSize: 22,
-        fontWeight: "700",
-        color: "#D32F2F",
-        marginBottom: 8
-    },
-    errorSubtitleModal: {
-        fontSize: 14,
-        color: THEME.textMain,
-        textAlign: "center",
-        marginBottom: 20
-    },
-    closeBtn: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        padding: 5
-    },
-    errorButton: {
-        backgroundColor: '#D32F2F',
-        borderRadius: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 30,
-        marginTop: 10
-    },
-    errorButtonText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: 'bold'
-    },
-    successBoxModal: {
-        width: "80%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        paddingVertical: 30,
-        paddingHorizontal: 20,
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 8
-    },
-    iconCircleSuccess: {
-        width: 80,
-        height: 80,
-        backgroundColor: "#E8F5E9",
-        borderRadius: 40,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 20
-    },
-    successTitleModal: {
-        fontSize: 22,
-        fontWeight: "700",
-        color: THEME.success,
-        marginBottom: 8
-    },
-    successSubtitleModal: {
-        fontSize: 14,
-        color: THEME.textMain,
-        textAlign: "center",
-        marginBottom: 20
-    },
-    successButton: {
-        backgroundColor: THEME.primary,
-        borderRadius: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 30,
-        marginTop: 10
-    },
-    successButtonText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: 'bold'
-    },
 
     // --- Header ---
     appBar: {
@@ -1012,6 +973,79 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center"
     }
+});
+
+// --- STYLES KHUSUS ALERT MODAL ---
+const alertStyles = StyleSheet.create({
+    backdrop: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        paddingHorizontal: 20,
+    },
+    alertBox: {
+        width: "100%",
+        backgroundColor: THEME.card,
+        borderRadius: 18,
+        padding: 30,
+        alignItems: "center",
+        elevation: 10,
+    },
+    iconCircle: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 15,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: THEME.textMain,
+        marginBottom: 10,
+        textAlign: "center",
+    },
+    message: {
+        fontSize: 15,
+        color: THEME.textMain,
+        textAlign: "center",
+        marginBottom: 30,
+        lineHeight: 22,
+    },
+    buttonContainer: {
+        flexDirection: "row",
+        width: "100%",
+        justifyContent: "center",
+    },
+    button: {
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        minWidth: 120,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    buttonText: {
+        color: "#FFF",
+        fontWeight: "bold",
+        fontSize: 14,
+        textAlign: "center",
+    },
+    ghostButton: {
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderColor: THEME.border,
+        minWidth: 120,
+        marginRight: 10,
+    },
+    ghostButtonText: {
+        color: THEME.textMain,
+        fontWeight: "600",
+        fontSize: 14,
+        textAlign: "center",
+    },
 });
 
 export default MonitorKontraksi;

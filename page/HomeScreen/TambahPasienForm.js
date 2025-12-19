@@ -132,7 +132,7 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
 
       // 1. Register Pasien
       const regResponse = await fetch(
-        `https://restful-api-bmc-production.up.railway.app/api/bidan/register-pasien`,
+        `https://restful-api-bmc-production-v2.up.railway.app/api/bidan/register-pasien`,
         {
           method: "POST",
           headers: {
@@ -167,7 +167,7 @@ export default function TambahPasienForm({ onClose, onSuccess, token }) {
       });
 
       const laborResponse = await fetch(
-        `https://restful-api-bmc-production.up.railway.app/api/bidan/pasien/${pasienId}/mulai-persalinan`,
+        `https://restful-api-bmc-production-v2.up.railway.app/api/bidan/pasien/${pasienId}/mulai-persalinan`,
         {
           method: "POST",
           headers: {

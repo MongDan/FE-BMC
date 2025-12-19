@@ -44,7 +44,7 @@ export default function LoginScreen() {
 
     try {
       const response = await fetch(
-        "https://restful-api-bmc-production.up.railway.app/api/login-bidan",
+        "https://restful-api-bmc-production-v2.up.railway.app/api/login-bidan",
         {
           method: "POST",
           headers: {

@@ -48,7 +48,7 @@ export default function ObatDanCairan() {
     const fetchData = async () => {
       try {
         const res = await fetch(
-          `https://restful-api-bmc-production.up.railway.app/api/partograf/${id}/catatan`
+          `https://restful-api-bmc-production-v2.up.railway.app/api/partograf/${id}/catatan`
         );
         const json = await res.json();
         // Pastikan apiData selalu array
