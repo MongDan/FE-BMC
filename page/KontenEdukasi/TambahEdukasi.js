@@ -9,21 +9,14 @@ import {
   ActivityIndicator,
   StatusBar,
   RefreshControl,
-  Modal,
   SafeAreaView,
-  Platform,
-  KeyboardAvoidingView,
-  Pressable,
-  ScrollView
+  ScrollView,
+  Keyboard,
+  Modal // Balik ke Modal Native
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigate } from "react-router-native";
-import {
-  Ionicons,
-  MaterialIcons,
-  FontAwesome5,
-  Feather
-} from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, Feather } from "@expo/vector-icons";
 
 const THEME = {
   bg: "#F4F6F8",
@@ -38,7 +31,7 @@ const THEME = {
   warning: "#FFB300"
 };
 
-// Reuse CustomAlertModal dari ProfileScreen
+// === COMPONENT: NATIVE MODAL ALERT ===
 function CustomAlertModal({
   isVisible,
   onClose,
@@ -51,18 +44,27 @@ function CustomAlertModal({
     success: { name: "check-circle", color: THEME.success },
     info: { name: "info", color: THEME.primary }
   };
+
   const { name, color: iconColor } = iconMap[type] || iconMap.info;
+
   return (
-    <Modal transparent visible={isVisible} animationType="fade">
-      <View style={styles.alertBackdrop}>
+    <Modal
+      transparent={true}
+      visible={isVisible}
+      animationType="fade"
+      onRequestClose={onClose} // Penting untuk tombol back Android
+    >
+      <View style={styles.modalBackdrop}>
         <View style={styles.alertBox}>
           <View
             style={[styles.iconCircle, { backgroundColor: iconColor + "15" }]}
           >
-            <Feather name={name} size={30} color={iconColor} />
+            <Feather name={name} size={35} color={iconColor} />
           </View>
+
           <Text style={styles.alertTitle}>{title}</Text>
           <Text style={styles.alertMessage}>{message}</Text>
+
           <TouchableOpacity
             style={[
               styles.primaryButton,
@@ -70,7 +72,7 @@ function CustomAlertModal({
             ]}
             onPress={onClose}
           >
-            <Text style={styles.primaryButtonText}>TUTUP</Text>
+            <Text style={styles.primaryButtonText}>MENGERTI</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -114,15 +116,18 @@ export default function TambahEdukasi() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!judul || !isi) {
+    Keyboard.dismiss(); // Kunci utama agar UI stabil sebelum modal muncul
+
+    if (!judul.trim() || !isi.trim()) {
       setAlert({
         visible: true,
-        title: "Gagal",
-        msg: "Judul dan isi tidak boleh kosong.",
+        title: "Data Kosong",
+        msg: "Judul dan isi materi harus terisi sebelum diterbitkan.",
         type: "danger"
       });
       return;
     }
+
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem("userToken");
@@ -137,11 +142,12 @@ export default function TambahEdukasi() {
           body: JSON.stringify({ judul_konten: judul, isi_konten: isi })
         }
       );
+
       if (res.ok) {
         setAlert({
           visible: true,
           title: "Berhasil",
-          msg: "Materi berhasil diterbitkan.",
+          msg: "Materi edukasi berhasil diterbitkan.",
           type: "success"
         });
         setJudul("");
@@ -152,8 +158,8 @@ export default function TambahEdukasi() {
     } catch (err) {
       setAlert({
         visible: true,
-        title: "Error",
-        msg: "Koneksi gagal.",
+        title: "Gagal",
+        msg: "Koneksi server bermasalah.",
         type: "danger"
       });
     } finally {
@@ -164,6 +170,8 @@ export default function TambahEdukasi() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+
+      {/* NATIVE MODAL COMPONENT */}
       <CustomAlertModal
         isVisible={alert.visible}
         title={alert.title}
@@ -172,17 +180,7 @@ export default function TambahEdukasi() {
         onClose={() => setAlert({ ...alert, visible: false })}
       />
 
-      {/* Header ala Profile/Home */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={THEME.textMain} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pusat Edukasi</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
       <View style={styles.container}>
-        {/* Tab Switcher ala Profile Section */}
         <View style={styles.tabWrapper}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === "create" && styles.tabActive]}
@@ -220,19 +218,19 @@ export default function TambahEdukasi() {
                 <Text style={styles.inputLabel}>Judul Materi</Text>
                 <TextInput
                   style={styles.simpleInput}
-                  placeholder="Contoh: Gizi Ibu Hamil"
+                  placeholder="Judul"
                   value={judul}
                   onChangeText={setJudul}
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Isi Materi Lengkap</Text>
+                <Text style={styles.inputLabel}>Isi Materi</Text>
                 <TextInput
                   style={[
                     styles.simpleInput,
                     { height: 150, textAlignVertical: "top" }
                   ]}
-                  placeholder="Tuliskan penjelasan..."
+                  placeholder="Isi..."
                   value={isi}
                   onChangeText={setIsi}
                   multiline
@@ -271,10 +269,7 @@ export default function TambahEdukasi() {
                   <Ionicons name="book" size={20} color={THEME.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.menuText} numberOfLines={1}>
-                    {item.judul_konten}
-                  </Text>
-                  <Text style={styles.subText}>ID: {item.id}</Text>
+                  <Text style={styles.menuText}>{item.judul_konten}</Text>
                 </View>
                 <MaterialIcons
                   name="chevron-right"
@@ -283,33 +278,16 @@ export default function TambahEdukasi() {
                 />
               </TouchableOpacity>
             )}
-            ListHeaderComponent={
-              <Text style={styles.sectionTitle}>SEMUA MATERI</Text>
-            }
             contentContainerStyle={styles.listContainer}
           />
         )}
       </View>
-
-      {/* Bottom Bar akan muncul secara otomatis jika ini adalah route yang dipanggil di dalam main navigasi */}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: THEME.bg },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: "#FFF",
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.border
-  },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
-  backBtn: { padding: 4 },
   container: { flex: 1, padding: 20 },
   tabWrapper: {
     flexDirection: "row",
@@ -363,16 +341,14 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.primary,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: "center",
-    elevation: 2
+    alignItems: "center"
   },
   primaryButtonText: { color: "#FFF", fontWeight: "bold", letterSpacing: 0.5 },
   listContainer: {
     backgroundColor: "#FFF",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.border,
-    overflow: "hidden"
+    borderColor: THEME.border
   },
   menuItem: {
     flexDirection: "row",
@@ -390,39 +366,47 @@ const styles = StyleSheet.create({
     marginRight: 16
   },
   menuText: { fontSize: 15, fontWeight: "600", color: THEME.textMain },
-  subText: { fontSize: 11, color: THEME.textSec },
-  alertBackdrop: {
+
+  // === MODAL STYLES (NATIVE VERSION) ===
+  modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20
+    padding: 24
   },
   alertBox: {
     width: "100%",
     backgroundColor: "#FFF",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 30,
-    alignItems: "center"
+    alignItems: "center",
+    elevation: 20, // Penting untuk Android agar di atas layer lain
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10
   },
   iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15
+    marginBottom: 20
   },
   alertTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: THEME.textMain,
-    marginBottom: 10
+    marginBottom: 10,
+    textAlign: "center"
   },
   alertMessage: {
-    fontSize: 15,
+    fontSize: 14,
     color: THEME.textSec,
     textAlign: "center",
-    marginBottom: 30
+    marginBottom: 30,
+    lineHeight: 20
   }
 });

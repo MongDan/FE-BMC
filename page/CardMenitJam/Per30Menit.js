@@ -241,7 +241,7 @@ export default function Per30Menit() {
     try {
       const waktuLokal = toLocalISOString(waktuCatat);
       const res = await fetch(
-        `https://restful-api-bmc-production.up.railway.app/api/partograf/${id}/catatan`,
+        `https://restful-api-bmc-production-v2.up.railway.app/api/partograf/${id}/catatan`,
         {
           method: "POST",
           headers: {

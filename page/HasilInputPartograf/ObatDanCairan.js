@@ -13,14 +13,23 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 // === HELPERS ===
 const formatDateFull = (dateString) => {
   if (!dateString) return "-";
-  const d = new Date(dateString);
+  
+  // Format dari API lu: "2025-12-20 15:48:00"
+  // Kita ganti spasi dengan "T" agar menjadi format ISO yang valid di semua perangkat (Android/iOS)
+  const formattedString = dateString.replace(" ", "T");
+  const d = new Date(formattedString);
+
   const months = [
-    "Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"
+    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+    "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
   ];
-  const day = d.getUTCDate();
-  const month = months[d.getUTCMonth()];
-  const hours = d.getUTCHours().toString().padStart(2,"0");
-  const minutes = d.getUTCMinutes().toString().padStart(2,"0");
+
+  // KRITIK: Jangan pernah pakai getUTC... untuk data yang sudah dalam waktu lokal!
+  const day = d.getDate();           // Ambil tanggal lokal
+  const month = months[d.getMonth()]; // Ambil bulan lokal
+  const hours = d.getHours().toString().padStart(2, "0");     // Jam lokal (15)
+  const minutes = d.getMinutes().toString().padStart(2, "0"); // Menit lokal (48)
+
   return `${day} ${month}, ${hours}:${minutes}`;
 };
 
@@ -71,13 +80,16 @@ export default function ObatDanCairan() {
   }
 
   // Filter data yang tidak null
-  const filteredData = apiData.filter(item => item.obat_cairan != null);
+  const filteredData = apiData.filter((item) => item.obat_cairan != null);
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.appBar}>
-        <TouchableOpacity onPress={() => navigate(-1)} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigate(-1)}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Obat & Cairan</Text>
@@ -98,9 +110,7 @@ export default function ObatDanCairan() {
               </View>
               <View style={styles.rowBetween}>
                 <Text style={styles.label}>Obat & Cairan</Text>
-                <Text style={styles.valueText}>
-                  {String(item.obat_cairan)} 
-                </Text>
+                <Text style={styles.valueText}>{String(item.obat_cairan)}</Text>
               </View>
             </View>
           ))

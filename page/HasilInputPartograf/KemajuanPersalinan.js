@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
 import { useParams, useNavigate } from "react-router-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -23,8 +23,12 @@ const formatTime = (dateString) => {
 
 const formatDateFull = (dateString) => {
   if (!dateString) return "-";
-  const safeDate = dateString.replace(" ", "T");
-  const d = new Date(safeDate);
+
+  // Format dari API lu: "2025-12-20 15:48:00"
+  // Kita ganti spasi dengan "T" agar menjadi format ISO yang valid di semua perangkat (Android/iOS)
+  const formattedString = dateString.replace(" ", "T");
+  const d = new Date(formattedString);
+
   const months = [
     "Jan",
     "Feb",
@@ -37,12 +41,15 @@ const formatDateFull = (dateString) => {
     "Sep",
     "Okt",
     "Nov",
-    "Des",
+    "Des"
   ];
-  const day = d.getUTCDate();
-  const month = months[d.getUTCMonth()];
-  const hours = d.getUTCHours().toString().padStart(2, "0");
-  const minutes = d.getUTCMinutes().toString().padStart(2, "0");
+
+  // KRITIK: Jangan pernah pakai getUTC... untuk data yang sudah dalam waktu lokal!
+  const day = d.getDate(); // Ambil tanggal lokal
+  const month = months[d.getMonth()]; // Ambil bulan lokal
+  const hours = d.getHours().toString().padStart(2, "0"); // Jam lokal (15)
+  const minutes = d.getMinutes().toString().padStart(2, "0"); // Menit lokal (48)
+
   return `${day} ${month}, ${hours}:${minutes}`;
 };
 
@@ -160,7 +167,7 @@ export default function KemajuanPersalinan() {
         return {
           title: formatRangeTitle(item.waktu_catat), // Judul misal: 16:00 - 16:10
           count: listKontraksi.length,
-          data: listKontraksi,
+          data: listKontraksi
         };
       })
       .filter((group) => group.count > 0); // Opsional: Hanya tampilkan jika ada kontraksi di jam tersebut
@@ -194,7 +201,7 @@ export default function KemajuanPersalinan() {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === "pembukaan" && styles.tabBtnActive,
+            activeTab === "pembukaan" && styles.tabBtnActive
           ]}
           onPress={() => setActiveTab("pembukaan")}
         >
@@ -206,7 +213,7 @@ export default function KemajuanPersalinan() {
           <Text
             style={[
               styles.tabText,
-              activeTab === "pembukaan" && styles.tabTextActive,
+              activeTab === "pembukaan" && styles.tabTextActive
             ]}
           >
             Pembukaan
@@ -216,7 +223,7 @@ export default function KemajuanPersalinan() {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === "kontraksi" && styles.tabBtnActive,
+            activeTab === "kontraksi" && styles.tabBtnActive
           ]}
           onPress={() => setActiveTab("kontraksi")}
         >
@@ -228,7 +235,7 @@ export default function KemajuanPersalinan() {
           <Text
             style={[
               styles.tabText,
-              activeTab === "kontraksi" && styles.tabTextActive,
+              activeTab === "kontraksi" && styles.tabTextActive
             ]}
           >
             Kontraksi
@@ -273,7 +280,7 @@ export default function KemajuanPersalinan() {
                               styles.dot,
                               item.penurunan_kepala >= num
                                 ? styles.dotActive
-                                : styles.dotInactive,
+                                : styles.dotInactive
                             ]}
                           />
                         ))}
@@ -332,7 +339,7 @@ export default function KemajuanPersalinan() {
                             style={[
                               styles.td,
                               styles.tdBold,
-                              { textAlign: "right" },
+                              { textAlign: "right" }
                             ]}
                           >
                             {durasi}"
@@ -362,7 +369,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: "#EEE",
-    paddingTop: 40,
+    paddingTop: 40
   },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
@@ -371,7 +378,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#EEE",
+    borderBottomColor: "#EEE"
   },
   tabBtn: {
     flex: 1,
@@ -381,7 +388,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: "#F5F5F5",
-    marginHorizontal: 4,
+    marginHorizontal: 4
   },
   tabBtnActive: { backgroundColor: "#0277BD" },
   tabText: { marginLeft: 6, fontWeight: "600", color: "#666", fontSize: 14 },
@@ -390,7 +397,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 50,
+    marginTop: 50
   },
   emptyIconBg: {
     width: 60,
@@ -399,7 +406,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0E0E0",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 10
   },
   emptyText: { color: "#999", fontStyle: "italic", fontSize: 14 },
   card: {
@@ -411,7 +418,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 2
   },
   cardDateRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   cardDate: {
@@ -419,14 +426,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     color: "#888",
-    textTransform: "uppercase",
+    textTransform: "uppercase"
   },
   barContainer: { marginBottom: 10 },
   barHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginBottom: 8,
+    marginBottom: 8
   },
   barLabel: { fontSize: 14, color: "#555", fontWeight: "500" },
   barValue: { fontSize: 18, fontWeight: "bold", color: "#0277BD" },
@@ -437,7 +444,7 @@ const styles = StyleSheet.create({
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "center"
   },
   label: { fontSize: 14, color: "#555", fontWeight: "500" },
   dotsContainer: { flexDirection: "row", alignItems: "center" },
@@ -448,20 +455,20 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: "bold",
     color: "#0277BD",
-    fontSize: 16,
+    fontSize: 16
   },
   noDataText: {
     fontSize: 12,
     color: "#AAA",
     fontStyle: "italic",
-    marginBottom: 8,
+    marginBottom: 8
   },
   cardNoPadding: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     marginBottom: 16,
     elevation: 2,
-    overflow: "hidden",
+    overflow: "hidden"
   },
   groupHeader: {
     flexDirection: "row",
@@ -469,14 +476,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#E1F5FE",
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   groupTitle: { fontSize: 14, fontWeight: "bold", color: "#0277BD" },
   countBadge: {
     backgroundColor: "#FFF",
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 4
   },
   countText: { fontSize: 12, fontWeight: "bold", color: "#0277BD" },
   thRow: {
@@ -485,7 +492,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: "#FAFAFA",
     borderBottomWidth: 1,
-    borderBottomColor: "#EEE",
+    borderBottomColor: "#EEE"
   },
   th: { flex: 1, fontSize: 11, fontWeight: "bold", color: "#888" },
   tr: {
@@ -493,8 +500,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
+    borderBottomColor: "#F5F5F5"
   },
   td: { flex: 1, fontSize: 13, color: "#444" },
-  tdBold: { fontWeight: "bold", color: "#0277BD" },
+  tdBold: { fontWeight: "bold", color: "#0277BD" }
 });

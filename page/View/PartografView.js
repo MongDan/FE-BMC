@@ -30,7 +30,7 @@ const THEME = {
   danger: "#EF5350",
   success: "#66BB6A",
   warning: "#FFB300",
-  card: "#FFFFFF",
+  card: "#FFFFFF"
 };
 
 // ======================= COMPONENT: CUSTOM MODAL ALERT ==========================
@@ -42,13 +42,13 @@ function CustomAlertModal({
   type = "info",
   confirmText,
   onConfirm,
-  cancelText = "Tutup",
+  cancelText = "Tutup"
 }) {
   const iconMap = {
     danger: { name: "alert-triangle", color: THEME.danger },
     success: { name: "check-circle", color: THEME.success },
     info: { name: "info", color: THEME.primary },
-    confirm: { name: "help-circle", color: THEME.warning },
+    confirm: { name: "help-circle", color: THEME.warning }
   };
 
   const { name, color: iconColor } = iconMap[type] || iconMap.info;
@@ -68,7 +68,7 @@ function CustomAlertModal({
           <View
             style={[
               alertStyles.iconCircle,
-              { backgroundColor: iconColor + "15" },
+              { backgroundColor: iconColor + "15" }
             ]}
           >
             <Feather name={name} size={30} color={iconColor} />
@@ -82,7 +82,7 @@ function CustomAlertModal({
                   style={[
                     alertStyles.button,
                     alertStyles.ghostButton,
-                    { flex: 1 },
+                    { flex: 1 }
                   ]}
                   onPress={onClose}
                 >
@@ -94,8 +94,8 @@ function CustomAlertModal({
                     {
                       backgroundColor: mainButtonColor,
                       flex: 1,
-                      marginLeft: 10,
-                    },
+                      marginLeft: 10
+                    }
                   ]}
                   onPress={onConfirm}
                 >
@@ -106,7 +106,7 @@ function CustomAlertModal({
               <Pressable
                 style={[
                   alertStyles.button,
-                  { backgroundColor: singleButtonColor, minWidth: "50%" },
+                  { backgroundColor: singleButtonColor, minWidth: "50%" }
                 ]}
                 onPress={onClose}
               >
@@ -136,23 +136,18 @@ export default function PartografWebview() {
     type: "info",
     onConfirm: null,
     confirmText: "Ya",
-    cancelText: "Tutup",
+    cancelText: "Tutup"
   });
 
   // Fungsi Helper Alert
-  const showCustomAlert = (
-    title,
-    message,
-    type = "info",
-    onConfirm = null
-  ) => {
+  const showCustomAlert = (title, message, type = "info", onConfirm = null) => {
     setAlertConfig({
       title,
       message,
       type,
       onConfirm,
       confirmText: "OK",
-      cancelText: "Tutup",
+      cancelText: "Tutup"
     });
     setAlertVisible(true);
   };
@@ -163,7 +158,7 @@ export default function PartografWebview() {
       try {
         const userToken = await AsyncStorage.getItem("userToken");
         // Gunakan IP lokal komputer jika testing di emulator (misal 192.168.x.x) atau URL Vercel
-        // const baseUrl = "http://192.168.1.5:5500/index.html"; 
+        // const baseUrl = "http://192.168.1.5:5500/index.html";
         const baseUrl = "https://partograf-view-digital.vercel.app";
 
         if (userToken && partografId && noReg) {
@@ -202,7 +197,7 @@ export default function PartografWebview() {
 
         // Tulis data base64 menjadi file fisik
         await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-          encoding: "base64", // <--- Ganti jadi string biasa (pakai tanda kutip)
+          encoding: "base64" // <--- Ganti jadi string biasa (pakai tanda kutip)
         });
 
         // Cek apakah fitur sharing tersedia
@@ -214,7 +209,7 @@ export default function PartografWebview() {
           await Sharing.shareAsync(fileUri, {
             mimeType: "application/pdf",
             dialogTitle: `Simpan atau Bagikan ${filename}`,
-            UTI: "com.adobe.pdf", // Khusus iOS agar dikenali sebagai PDF
+            UTI: "com.adobe.pdf" // Khusus iOS agar dikenali sebagai PDF
           });
         } else {
           postMessageToWebView(
@@ -243,7 +238,6 @@ export default function PartografWebview() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFF" }}>
-      
       {/* --- CUSTOM ALERT MODAL --- */}
       <CustomAlertModal
         isVisible={alertVisible}
@@ -310,22 +304,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
     backgroundColor: "#FFF",
-    elevation: 2,
+    elevation: 2
   },
   backButton: { padding: 8, marginLeft: -8 },
   headerTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
-    textTransform: "uppercase",
+    textTransform: "uppercase"
   },
   loadingContainer: {
     position: "absolute",
     inset: 0,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "white",
-  },
+    backgroundColor: "white"
+  }
 });
 
 // --- STYLES KHUSUS ALERT MODAL ---
@@ -335,7 +329,7 @@ const alertStyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   alertBox: {
     width: "100%",
@@ -343,7 +337,7 @@ const alertStyles = StyleSheet.create({
     borderRadius: 18,
     padding: 30,
     alignItems: "center",
-    elevation: 10,
+    elevation: 10
   },
   iconCircle: {
     width: 60,
@@ -351,26 +345,26 @@ const alertStyles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 15
   },
   title: {
     fontSize: 20,
     fontWeight: "bold",
     color: THEME.textMain,
     marginBottom: 10,
-    textAlign: "center",
+    textAlign: "center"
   },
   message: {
     fontSize: 15,
     color: THEME.textMain,
     textAlign: "center",
     marginBottom: 30,
-    lineHeight: 22,
+    lineHeight: 22
   },
   buttonContainer: {
     flexDirection: "row",
     width: "100%",
-    justifyContent: "center",
+    justifyContent: "center"
   },
   button: {
     paddingVertical: 14,
@@ -378,25 +372,25 @@ const alertStyles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 120,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center"
   },
   buttonText: {
     color: "#FFF",
     fontWeight: "bold",
     fontSize: 14,
-    textAlign: "center",
+    textAlign: "center"
   },
   ghostButton: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: THEME.border,
     minWidth: 120,
-    marginRight: 10,
+    marginRight: 10
   },
   ghostButtonText: {
     color: THEME.textMain,
     fontWeight: "600",
     fontSize: 14,
-    textAlign: "center",
-  },
+    textAlign: "center"
+  }
 });
