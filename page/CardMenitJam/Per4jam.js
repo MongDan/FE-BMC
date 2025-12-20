@@ -515,7 +515,7 @@ export default function Per4jam() {
                 label="Aseton"
                 value={form.aseton}
                 onChange={(v) => handleChange("aseton", v)}
-                options={["-", "+", "++", "+++"].map((v) => ({
+                options={["-", "+"].map((v) => ({
                   label: v,
                   value: v
                 }))}
