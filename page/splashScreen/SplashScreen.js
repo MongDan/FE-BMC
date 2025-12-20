@@ -7,43 +7,41 @@ export default function SplashScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <Image
-        source={require("../../assets/HeaderBar.webp")}
+        source={require("../../assets/HeaderBar.png")}
         style={styles.headerBar}
       />
 
+      {/* Body Content */}
       <View style={styles.bodyContent}>
-
-        <View style={styles.logoContainer}>
-          <Image
-            source={require("../../assets/Logo.png")}
-            style={styles.logo}
-          />
-          <View style={styles.textBlock}>
-            <Text style={styles.title}>Ruang</Text>
-            <Text style={styles.subtitle}>Bunda</Text>
+        <View style={styles.mainWrapper}>
+          {/* Sisi Kiri: Ruang Bunda */}
+          <View style={styles.brandContainer}>
+            <Image
+              source={require("../../assets/Logo.png")}
+              style={styles.logoMain}
+            />
+            <View style={styles.textBlock}>
+              <Text style={styles.title}>Ruang</Text>
+              <Text style={styles.subtitle}>Bunda</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Logo Bawah (tanpa jarak ke atas) */}
-        <View style={styles.logoBawah}>
-          <Image
-            source={require("../../assets/Kemenkes.png")}
-            style={styles.logoKecil}
-          />
-          <Image
-            source={require("../../assets/IBI.png")}
-            style={styles.logoKecil}
-          />
-          <Image
-            source={require("../../assets/BMC.webp")}
-            style={styles.logoKecil}
-          />
+          {/* Garis Vertikal (Separator) */}
+          <View style={styles.verticalLine} />
+
+          {/* Sisi Kanan: BMC */}
+          <View style={styles.bmcContainer}>
+            <Image
+              source={require("../../assets/BMC.png")}
+              style={styles.logoKecil}
+            />
+          </View>
         </View>
       </View>
 
       {/* Footer */}
       <Image
-        source={require("../../assets/FooterBar.webp")}
+        source={require("../../assets/FooterBar.png")}
         style={styles.footerBar}
       />
     </SafeAreaView>
@@ -53,7 +51,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffffff",
+    backgroundColor: "#FFFFFF",
     justifyContent: "space-between",
     alignItems: "center"
   },
@@ -65,45 +63,65 @@ const styles = StyleSheet.create({
   bodyContent: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    width: "100%"
   },
-  logoContainer: {
+  mainWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 20,
-    marginBottom: -30
+    justifyContent: "center",
+    width: "100%",
+    paddingHorizontal: 24
   },
-  logo: {
-    width: 150,
-    height: 150,
+  // --- SISI KIRI ---
+  brandContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end"
+  },
+  logoMain: {
+    width: 60,
+    height: 60,
     resizeMode: "contain",
     marginRight: 10
   },
   textBlock: {
-    justifyContent: "center"
+    justifyContent: "center",
+    alignItems: "flex-start"
   },
   title: {
-    fontSize: 36,
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#000000",
-    lineHeight: 38
+    color: "#333333",
+    lineHeight: 22,
+    letterSpacing: 0.5
   },
   subtitle: {
-    fontSize: 36,
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#448AFF",
-    lineHeight: 38
+    color: "#2196F3",
+    lineHeight: 22,
+    letterSpacing: 0.5
   },
-  logoBawah: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center"
+  // --- GARIS TENGAH ---
+  verticalLine: {
+    width: 1.5,
+    height: 60,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 24,
+    borderRadius: 1
+  },
+  // --- SISI KANAN ---
+  bmcContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "flex-start"
   },
   logoKecil: {
-    width: 50,
-    height: 90,
-    resizeMode: "contain",
-    marginHorizontal: 15 // sedikit jarak antar logo saja
+    width: 85,
+    height: 85,
+    resizeMode: "contain"
   },
   footerBar: {
     width: "100%",
