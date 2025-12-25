@@ -187,8 +187,8 @@ export default function Per4jam() {
     suhu: "",
     urine: "",
     obat: "",
-    protein: "-",
-    aseton: "-"
+    protein: "",
+    aseton: ""
   });
 
   const [waktuCatat, setWaktuCatat] = useState(new Date());
@@ -204,24 +204,6 @@ export default function Per4jam() {
   const handleChange = (key, value) => setForm((p) => ({ ...p, [key]: value }));
 
   const handleSubmit = async () => {
-    if (
-      !form.pembukaan ||
-      !form.penurunan ||
-      !form.penyusupan ||
-      !form.warnaKetuban ||
-      !form.sistolik ||
-      !form.diastolik ||
-      !form.suhu
-    ) {
-      setModalContent({
-        title: "Data Kurang",
-        message: "Mohon lengkapi semua observasi utama.",
-        type: "info"
-      });
-      setModalVisible(true);
-      return;
-    }
-
     setLoading(true);
     try {
       const safeInt = (v) => {
@@ -241,8 +223,8 @@ export default function Per4jam() {
         suhu_ibu: form.suhu,
         volume_urine: safeInt(form.urine),
         obat_cairan: form.obat || null,
-        protein: form.protein === "-" ? null : form.protein,
-        aseton: form.aseton === "-" ? null : form.aseton,
+        protein: form.protein || null,
+        aseton: form.aseton || null,
         djj: null,
         nadi_ibu: null
       };
