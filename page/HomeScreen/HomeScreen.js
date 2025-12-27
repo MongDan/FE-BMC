@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,73 +11,168 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
-  Pressable
+  Switch,
+  Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 import {
   Ionicons,
   MaterialIcons,
+  MaterialCommunityIcons,
   FontAwesome5,
-  Feather
 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigate } from "react-router-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Notifications from "expo-notifications";
 
-// Import Komponen Eksternal
+// Import Komponen Eksternal & Service
 import TambahPasienForm from "./TambahPasienForm";
 import ProfileScreen from "../ProfileScreen/ProfileScreen";
-import TambahEdukasi from "../KontenEdukasi/TambahEdukasi";
+import TambahEdukasi from "../KontenEdukasi/TambahEdukasi"; // Jika file ini ada di struktur baru
 import {
   registerForPushNotificationsAsync,
-  cancelAllReminders
+  cancelAllReminders,
 } from "../../src/NotificationService";
 
 // ======================= THEME & UTILS ==========================
 const THEME = {
   bg: "#F4F6F8",
   primary: "#448AFF",
+  accent: "#00897B",
   cardBg: "#FFFFFF",
   textMain: "#263238",
   textSec: "#78909C",
   border: "#ECEFF1",
+  inputBg: "#FFFFFF",
   active: "#29B6F6",
   inactive: "#BDBDBD",
   done: "#66BB6A",
   referral: "#FFA726",
-  danger: "#E53935"
+  danger: "#E53935",
 };
 
-const formatNoReg = (noReg) =>
-  !noReg ? "" : noReg.toString().replace(".00", "");
+// ======================= GLOBAL HELPER FUNCTIONS (FIX ERROR) ==========================
+// Ditaruh di sini agar bisa diakses oleh SEMUA komponen (PasienCard & Modal)
+
+const formatNoReg = (noReg) => {
+  if (!noReg) return "";
+  return noReg.toString().replace(".00", "");
+};
+
+const formatDatetimeDisplay = (dateObj) => {
+  if (!dateObj) return "-";
+  // Cek apakah input string atau object date
+  const d = typeof dateObj === "string" ? new Date(dateObj) : dateObj;
+
+  if (isNaN(d.getTime())) return "-";
+
+  return `${d.getDate()} ${d.toLocaleString("id-ID", {
+    month: "short",
+  })} ${d.getFullYear()}, ${d.getHours().toString().padStart(2, "0")}:${d
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const formatDatetimeAPI = (dateObj) => {
+  if (!dateObj) return null;
+  const pad = (num) => num.toString().padStart(2, "0");
+  return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(
+    dateObj.getDate()
+  )} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(
+    dateObj.getSeconds()
+  )}`;
+};
+
+const parseDateString = (dateString) => {
+  if (!dateString) return new Date();
+  const d = new Date(dateString);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
+// ======================= HELPER COMPONENTS ==========================
+
+const DateInputButton = ({ label, dateValue, fieldName, onPress }) => (
+  <View style={styles.inputGroup}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <TouchableOpacity
+      style={styles.dateInputContainer}
+      onPress={() => onPress(fieldName, "date")}
+    >
+      <Ionicons name="calendar-outline" size={20} color={THEME.primary} />
+      <Text style={styles.dateInputText}>
+        {formatDatetimeDisplay(dateValue)}
+      </Text>
+      <Ionicons
+        name="chevron-down"
+        size={16}
+        color={THEME.textSec}
+        style={{ marginLeft: "auto" }}
+      />
+    </TouchableOpacity>
+  </View>
+);
+
+const NumberInput = ({ label, value, onChange, suffix }) => (
+  <View style={styles.halfInput}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <View style={styles.suffixInputContainer}>
+      <TextInput
+        style={styles.suffixInput}
+        value={value}
+        onChangeText={onChange}
+        keyboardType="numeric"
+        placeholder="0"
+      />
+      <Text style={styles.suffixText}>{suffix}</Text>
+    </View>
+  </View>
+);
 
 // ======================= COMPONENT: PATIENT CARD ==========================
 const PasienCard = ({ pasien, onPress, onStatusPress }) => {
   const status = pasien.persalinan?.status || "tidak diketahui";
+
   const getStatusConfig = () => {
     switch (status) {
       case "aktif":
         return { color: THEME.active, label: "Aktif", icon: "pulse" };
+      case "tidak_aktif":
+        return {
+          color: THEME.inactive,
+          label: "Non-Aktif",
+          icon: "bed-outline",
+        };
       case "selesai":
         return {
           color: THEME.done,
           label: "Selesai",
-          icon: "checkmark-circle-outline"
+          icon: "checkmark-circle-outline",
         };
       case "rujukan":
         return {
           color: THEME.referral,
           label: "Rujukan",
-          icon: "arrow-redo-outline"
+          icon: "arrow-redo-outline",
         };
       default:
         return {
           color: THEME.inactive,
-          label: "Non-Aktif",
-          icon: "bed-outline"
+          label: "Unknown",
+          icon: "help-circle-outline",
         };
     }
   };
+
   const statusConfig = getStatusConfig();
+  const rawDateMules = pasien.persalinan?.tanggal_jam_mules
+    ? new Date(pasien.persalinan.tanggal_jam_mules)
+    : null;
+  const rawDateKetuban = pasien.persalinan?.tanggal_jam_ketuban_pecah
+    ? new Date(pasien.persalinan.tanggal_jam_ketuban_pecah)
+    : null;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -86,13 +181,14 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
           <View
             style={[
               styles.avatarCircle,
-              { backgroundColor: THEME.primary + "15" }
+              { backgroundColor: THEME.primary + "15" },
             ]}
           >
             <Text style={[styles.avatarText, { color: THEME.primary }]}>
               {pasien.nama.charAt(0).toUpperCase()}
             </Text>
           </View>
+
           <View style={styles.headerInfo}>
             <Text style={styles.cardName} numberOfLines={1}>
               {pasien.nama}
@@ -101,11 +197,13 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
               No. RM: {formatNoReg(pasien.no_reg)}
             </Text>
           </View>
-          <View
+
+          <TouchableOpacity
             style={[
               styles.statusBadge,
-              { backgroundColor: statusConfig.color + "15" }
+              { backgroundColor: statusConfig.color + "15" },
             ]}
+            onPress={onStatusPress}
           >
             <Ionicons
               name={statusConfig.icon}
@@ -116,20 +214,454 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {statusConfig.label}
             </Text>
-          </View>
+            <MaterialIcons
+              name="edit"
+              size={10}
+              color={statusConfig.color}
+              style={{ marginLeft: 4 }}
+            />
+          </TouchableOpacity>
         </View>
+
         <View style={styles.divider} />
-        <View style={styles.infoRow}>
-          <MaterialIcons name="cake" size={14} color={THEME.textSec} />
-          <Text style={styles.infoText}>{pasien.umur} Th</Text>
-          <Text style={styles.infoSeparator}>|</Text>
-          <MaterialIcons name="location-on" size={14} color={THEME.textSec} />
-          <Text style={[styles.infoText, { flex: 1 }]} numberOfLines={1}>
-            {pasien.alamat}
-          </Text>
+
+        <View style={styles.cardBody}>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="cake" size={14} color={THEME.textSec} />
+            <Text style={styles.infoText}>{pasien.umur} Th</Text>
+            <Text style={styles.infoSeparator}>|</Text>
+            <MaterialIcons name="location-on" size={14} color={THEME.textSec} />
+            <Text style={[styles.infoText, { flex: 1 }]} numberOfLines={1}>
+              {pasien.alamat}
+            </Text>
+          </View>
+
+          {(rawDateKetuban || rawDateMules) && (
+            <View style={styles.clinicalInfoContainer}>
+              {pasien.persalinan?.ketuban_pecah == 1 && rawDateKetuban && (
+                <View style={styles.clinicalItem}>
+                  <MaterialCommunityIcons
+                    name="water-outline"
+                    size={14}
+                    color="#0288D1"
+                  />
+                  <Text style={styles.clinicalLabel}>Ketuban:</Text>
+                  <Text style={styles.clinicalValue}>
+                    {formatDatetimeDisplay(rawDateKetuban)}
+                  </Text>
+                </View>
+              )}
+              {rawDateMules && (
+                <View style={styles.clinicalItem}>
+                  <MaterialCommunityIcons
+                    name="clock-time-four-outline"
+                    size={14}
+                    color="#E65100"
+                  />
+                  <Text style={styles.clinicalLabel}>Mules:</Text>
+                  <Text style={styles.clinicalValue}>
+                    {formatDatetimeDisplay(rawDateMules)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
+  );
+};
+
+// ======================= MODAL UPDATE STATUS (FULL LOGIC) ==========================
+const StatusUpdateModal = ({ visible, onClose, onSuccess, pasien, token }) => {
+  const [status, setStatus] = useState("aktif");
+  const [loading, setLoading] = useState(false);
+
+  // --- STATE TANGGAL ---
+  const [tglRawat, setTglRawat] = useState(new Date());
+  const [tglMules, setTglMules] = useState(new Date());
+  const [ketubanPecah, setKetubanPecah] = useState(false);
+  const [tglKetuban, setTglKetuban] = useState(new Date());
+  const [tglLahir, setTglLahir] = useState(new Date());
+
+  // --- STATE DATA BAYI (Hanya untuk status selesai) ---
+  const [beratBadan, setBeratBadan] = useState("");
+  const [panjangBadan, setPanjangBadan] = useState("");
+  const [lingkarDada, setLingkarDada] = useState("");
+  const [lingkarKepala, setLingkarKepala] = useState("");
+  const [jenisKelamin, setJenisKelamin] = useState("Laki-laki");
+
+  // Picker Configuration
+  const [picker, setPicker] = useState({
+    show: false,
+    mode: "date",
+    field: null,
+  });
+
+  // Pre-fill data
+  useEffect(() => {
+    if (pasien && visible) {
+      const p = pasien.persalinan || {};
+      setStatus(p.status || "aktif");
+
+      setTglRawat(parseDateString(p.tanggal_jam_rawat));
+      setTglMules(parseDateString(p.tanggal_jam_mules));
+      setKetubanPecah(p.ketuban_pecah === true || p.ketuban_pecah === 1);
+      setTglKetuban(parseDateString(p.tanggal_jam_ketuban_pecah));
+      setTglLahir(
+        p.tanggal_jam_waktu_bayi_lahir
+          ? parseDateString(p.tanggal_jam_waktu_bayi_lahir)
+          : new Date()
+      );
+
+      // Fill Data Bayi jika ada
+      setBeratBadan(p.berat_badan ? String(p.berat_badan) : "");
+      setPanjangBadan(p.panjang_badan ? String(p.panjang_badan) : "");
+      setLingkarDada(p.lingkar_dada ? String(p.lingkar_dada) : "");
+      setLingkarKepala(p.lingkar_kepala ? String(p.lingkar_kepala) : "");
+      setJenisKelamin(p.jenis_kelamin || "Laki-laki");
+    }
+  }, [pasien, visible]);
+
+  const showDatePicker = (field, mode = "date") => {
+    setPicker({ show: true, mode, field });
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    const currentMode = picker.mode;
+
+    if (Platform.OS === "android") {
+      setPicker({ ...picker, show: false });
+    }
+
+    if (event.type === "dismissed") {
+      setPicker({ ...picker, show: false });
+      return;
+    }
+
+    if (selectedDate) {
+      switch (picker.field) {
+        case "rawat":
+          setTglRawat(selectedDate);
+          break;
+        case "mules":
+          setTglMules(selectedDate);
+          break;
+        case "ketuban":
+          setTglKetuban(selectedDate);
+          break;
+        case "lahir":
+          setTglLahir(selectedDate);
+          break;
+      }
+      if (currentMode === "date" && Platform.OS === "android") {
+        setTimeout(() => {
+          setPicker({ show: true, mode: "time", field: picker.field });
+        }, 100);
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    const persalinanId = pasien?.persalinan?.id;
+
+    // Payload Logic
+    let payload = {
+      status: status,
+      _method: "PUT", // Method spoofing for Laravel/PHP if needed
+    };
+
+    if (status === "aktif") {
+      payload.tanggal_jam_rawat = formatDatetimeAPI(tglRawat);
+      payload.tanggal_jam_mules = formatDatetimeAPI(tglMules);
+      payload.ketuban_pecah = ketubanPecah ? 1 : 0;
+      if (ketubanPecah) {
+        payload.tanggal_jam_ketuban_pecah = formatDatetimeAPI(tglKetuban);
+      } else {
+        payload.tanggal_jam_ketuban_pecah = null;
+      }
+    } else if (status === "selesai") {
+      // --- TAMBAHAN DATA BAYI ---
+      payload.tanggal_jam_waktu_bayi_lahir = formatDatetimeAPI(tglLahir);
+      payload.berat_badan = beratBadan;
+      payload.panjang_badan = panjangBadan;
+      payload.lingkar_dada = lingkarDada;
+      payload.lingkar_kepala = lingkarKepala;
+      payload.jenis_kelamin = jenisKelamin;
+    }
+
+    try {
+      const response = await fetch(
+        `https://restful-api-bmc-production-v2.up.railway.app/api/persalinan/${persalinanId}/status`,
+        {
+          method: "POST", // Menggunakan POST dengan _method: PUT
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (["selesai", "rujukan", "tidak_aktif"].includes(status)) {
+          await cancelAllReminders();
+          console.log("Notifikasi dimatikan untuk pasien ini.");
+        }
+        Alert.alert("Berhasil", "Status pasien dan data berhasil diperbarui.");
+        onSuccess();
+        onClose();
+      } else {
+        Alert.alert(
+          "Gagal",
+          data.message || "Terjadi kesalahan saat update status."
+        );
+      }
+    } catch (error) {
+      console.log("Error Update Status:", error);
+      Alert.alert("Error", "Gagal terhubung ke server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Update Status</Text>
+                <Text style={styles.modalSubtitle}>{pasien?.nama}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color={THEME.textSec} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={{ maxHeight: 500 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.sectionLabel}>PILIH STATUS BARU</Text>
+              <View style={styles.statusOptionsContainer}>
+                {["aktif", "tidak_aktif", "selesai", "rujukan"].map((item) => {
+                  let activeColor = THEME.primary;
+                  if (item === "selesai") activeColor = THEME.done;
+                  if (item === "rujukan") activeColor = THEME.referral;
+                  if (item === "tidak_aktif") activeColor = THEME.inactive;
+                  const isActive = status === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[
+                        styles.statusChip,
+                        isActive && {
+                          backgroundColor: activeColor,
+                          borderColor: activeColor,
+                        },
+                      ]}
+                      onPress={() => setStatus(item)}
+                    >
+                      <Text
+                        style={[
+                          styles.statusChipText,
+                          isActive && { color: "#FFF" },
+                        ]}
+                      >
+                        {item.replace("_", " ")}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* FORM AKTIF */}
+              {status === "aktif" && (
+                <View style={styles.dynamicForm}>
+                  <DateInputButton
+                    label="Waktu Rawat (Masuk)"
+                    dateValue={tglRawat}
+                    fieldName="rawat"
+                    onPress={showDatePicker}
+                  />
+                  <DateInputButton
+                    label="Waktu Mulai Mules"
+                    dateValue={tglMules}
+                    fieldName="mules"
+                    onPress={showDatePicker}
+                  />
+
+                  <View style={styles.switchRow}>
+                    <Text style={styles.inputLabel}>Ketuban Pecah?</Text>
+                    <Switch
+                      trackColor={{ false: "#767577", true: THEME.primary }}
+                      thumbColor={ketubanPecah ? "#FFF" : "#f4f3f4"}
+                      onValueChange={setKetubanPecah}
+                      value={ketubanPecah}
+                    />
+                  </View>
+
+                  {ketubanPecah && (
+                    <DateInputButton
+                      label="Waktu Ketuban Pecah"
+                      dateValue={tglKetuban}
+                      fieldName="ketuban"
+                      onPress={showDatePicker}
+                    />
+                  )}
+                </View>
+              )}
+
+              {/* FORM SELESAI (DATA BAYI) */}
+              {status === "selesai" && (
+                <View style={styles.dynamicForm}>
+                  <View
+                    style={[
+                      styles.infoBox,
+                      { backgroundColor: THEME.done + "20" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="information-circle"
+                      size={20}
+                      color={THEME.done}
+                    />
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        color: THEME.textMain,
+                        fontSize: 12,
+                        flex: 1,
+                      }}
+                    >
+                      Lengkapi data kelahiran bayi berikut ini.
+                    </Text>
+                  </View>
+
+                  {/* 1. Tanggal Lahir */}
+                  <DateInputButton
+                    label="Waktu Bayi Lahir"
+                    dateValue={tglLahir}
+                    fieldName="lahir"
+                    onPress={showDatePicker}
+                  />
+
+                  {/* 2. Jenis Kelamin */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Jenis Kelamin Bayi</Text>
+                    <View style={styles.genderContainer}>
+                      {["Laki-laki", "Perempuan"].map((jk) => (
+                        <TouchableOpacity
+                          key={jk}
+                          style={[
+                            styles.genderButton,
+                            jenisKelamin === jk && styles.genderButtonActive,
+                          ]}
+                          onPress={() => setJenisKelamin(jk)}
+                        >
+                          <Ionicons
+                            name={jk === "Laki-laki" ? "male" : "female"}
+                            size={16}
+                            color={jenisKelamin === jk ? "#FFF" : THEME.textSec}
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text
+                            style={[
+                              styles.genderText,
+                              jenisKelamin === jk && styles.genderTextActive,
+                            ]}
+                          >
+                            {jk}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* 3. Pengukuran Bayi (2 Kolom) */}
+                  <View style={styles.rowContainer}>
+                    <NumberInput
+                      label="Berat Badan"
+                      value={beratBadan}
+                      onChange={setBeratBadan}
+                      suffix="kg"
+                    />
+                    <NumberInput
+                      label="Panjang Badan"
+                      value={panjangBadan}
+                      onChange={setPanjangBadan}
+                      suffix="cm"
+                    />
+                  </View>
+
+                  <View style={styles.rowContainer}>
+                    <NumberInput
+                      label="Lingkar Kepala"
+                      value={lingkarKepala}
+                      onChange={setLingkarKepala}
+                      suffix="cm"
+                    />
+                    <NumberInput
+                      label="Lingkar Dada"
+                      value={lingkarDada}
+                      onChange={setLingkarDada}
+                      suffix="cm"
+                    />
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.saveButton, loading && { opacity: 0.7 }]}
+                onPress={handleSubmit}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {picker.show && (
+              <DateTimePicker
+                value={
+                  picker.field === "rawat"
+                    ? tglRawat
+                    : picker.field === "mules"
+                    ? tglMules
+                    : picker.field === "ketuban"
+                    ? tglKetuban
+                    : tglLahir
+                }
+                mode={picker.mode}
+                is24Hour={true}
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 };
 
@@ -137,11 +669,21 @@ const PasienCard = ({ pasien, onPress, onStatusPress }) => {
 export default function HomeScreen() {
   const navigate = useNavigate();
   const [activeScreen, setActiveScreen] = useState("home");
+
+  // State untuk Tambah Pasien
   const [modalVisible, setModalVisible] = useState(false);
+
+  // State untuk Update Status
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedPasienForStatus, setSelectedPasienForStatus] = useState(null);
+
   const [userToken, setUserToken] = useState(null);
   const [pasienList, setPasienList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Ref untuk Notifikasi Listener
+  const notificationListener = useRef();
 
   const filteredPasienList = pasienList.filter((pasien) =>
     pasien.nama.toLowerCase().includes(searchQuery.toLowerCase())
@@ -151,10 +693,11 @@ export default function HomeScreen() {
     if (!token) return;
     setIsLoading(true);
     try {
+      // Menggunakan V2 untuk list pasien sesuai file baru
       const res = await fetch(
         "https://restful-api-bmc-production-v2.up.railway.app/api/bidan/pasien",
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
       const data = await res.json();
@@ -166,8 +709,58 @@ export default function HomeScreen() {
     }
   };
 
+  // --- Fungsi Update Token ---
+  const updateTokenKeBackend = async (expoToken) => {
+    try {
+      const tokenJWT = await AsyncStorage.getItem("userToken");
+      if (!tokenJWT) return;
+      console.log("Setor Token ke Backend:", expoToken);
+      await fetch(
+        "https://restful-api-bmc-production-v2.up.railway.app/api/bidan/update-token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenJWT}`,
+          },
+          body: JSON.stringify({ token: expoToken }),
+        }
+      );
+    } catch (error) {
+      console.log("Gagal kirim token (Backend mungkin belum siap):", error);
+    }
+  };
+
   useEffect(() => {
-    registerForPushNotificationsAsync();
+    let isMounted = true;
+
+    // 1. Setup Notifikasi
+    const setupNotifications = async () => {
+      const expoToken = await registerForPushNotificationsAsync();
+      if (expoToken && isMounted) {
+        await updateTokenKeBackend(expoToken);
+      }
+    };
+    setupNotifications();
+
+    // 2. Listener Notifikasi
+    const subscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        const data = notification.request.content.data;
+        const title = notification.request.content.title;
+        const body = notification.request.content.body;
+
+        if (data && data.type === "EMERGENCY") {
+          Alert.alert(`⚠️ ${title}`, `${body}\n\nSegera cek pasien!`, [
+            { text: "SIAP", style: "default" },
+          ]);
+        }
+      }
+    );
+
+    notificationListener.current = subscription;
+
+    // 3. Load Data Pasien
     const load = async () => {
       const token = await AsyncStorage.getItem("userToken");
       if (token) {
@@ -176,12 +769,36 @@ export default function HomeScreen() {
       } else setIsLoading(false);
     };
     load();
+
+    // === CLEANUP ===
+    return () => {
+      isMounted = false;
+      if (subscription) {
+        subscription.remove();
+      }
+      if (
+        notificationListener.current &&
+        typeof notificationListener.current.remove === "function"
+      ) {
+        notificationListener.current.remove();
+      }
+    };
   }, []);
+
+  // Handler Open Modal Status
+  const handleOpenStatusModal = (pasien) => {
+    setSelectedPasienForStatus(pasien);
+    setStatusModalVisible(true);
+  };
+
+  // Handler Success Update Status
+  const handleStatusSuccess = () => {
+    fetchPasien(userToken);
+  };
 
   const renderContent = () => {
     if (activeScreen === "profile") return <ProfileScreen />;
 
-    // FIX: Sekarang manggil file eksternal TambahEdukasi.js
     if (activeScreen === "edukasi") {
       return <TambahEdukasi token={userToken} navigate={navigate} />;
     }
@@ -220,10 +837,13 @@ export default function HomeScreen() {
                     state: {
                       partografId: pasien.partograf_id,
                       name: pasien.nama,
-                      noReg: pasien.no_reg
-                    }
+                      noReg: pasien.no_reg,
+                      status: pasien.persalinan?.status || "tidak diketahui",
+                    },
                   })
                 }
+                // --- INI YANG BIKIN TOMBOL STATUS JALAN ---
+                onStatusPress={() => handleOpenStatusModal(pasien)}
               />
             ))
           )}
@@ -279,7 +899,7 @@ export default function HomeScreen() {
             <Text
               style={[
                 styles.navText,
-                activeScreen === "home" && styles.navTextActive
+                activeScreen === "home" && styles.navTextActive,
               ]}
             >
               Beranda
@@ -306,7 +926,7 @@ export default function HomeScreen() {
             <Text
               style={[
                 styles.navText,
-                activeScreen === "edukasi" && styles.navTextActive
+                activeScreen === "edukasi" && styles.navTextActive,
               ]}
             >
               Edukasi
@@ -330,11 +950,21 @@ export default function HomeScreen() {
             token={userToken}
           />
         </Modal>
+
+        {/* Modal Update Status (YANG BARU DIPASANG) */}
+        <StatusUpdateModal
+          visible={statusModalVisible}
+          onClose={() => setStatusModalVisible(false)}
+          onSuccess={handleStatusSuccess}
+          pasien={selectedPasienForStatus}
+          token={userToken}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
+// ======================= STYLES ==========================
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFF" },
   container: { flex: 1, backgroundColor: THEME.bg },
@@ -347,10 +977,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
-    elevation: 2
+    elevation: 2,
   },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   logoImage: { width: 32, height: 32, marginRight: 8 },
+  appNameContainer: { justifyContent: "center" },
   appNameText: { fontSize: 18, fontWeight: "bold", color: THEME.textMain },
   iconButton: { padding: 8 },
   contentContainer: { flex: 1 },
@@ -358,7 +989,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     paddingHorizontal: 20,
     paddingBottom: 16,
-    paddingTop: 10
+    paddingTop: 10,
   },
   searchContainer: {
     flexDirection: "row",
@@ -368,7 +999,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 46,
     borderWidth: 1,
-    borderColor: THEME.border
+    borderColor: THEME.border,
   },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: THEME.textMain },
   scrollContent: { padding: 20, paddingBottom: 100 },
@@ -377,7 +1008,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: THEME.textSec,
     marginBottom: 12,
-    letterSpacing: 1
+    letterSpacing: 1,
   },
   card: {
     backgroundColor: THEME.cardBg,
@@ -385,7 +1016,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderLeftWidth: 4,
     elevation: 2,
-    padding: 16
+    padding: 16,
   },
   cardHeader: { flexDirection: "row", alignItems: "center" },
   avatarCircle: {
@@ -394,7 +1025,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12
+    marginRight: 12,
   },
   avatarText: { fontSize: 18, fontWeight: "bold" },
   headerInfo: { flex: 1 },
@@ -405,7 +1036,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8
+    borderRadius: 8,
   },
   statusText: { fontSize: 10, fontWeight: "bold" },
   infoRow: { flexDirection: "row", alignItems: "center" },
@@ -420,7 +1051,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#ECEFF1",
-    elevation: 20
+    elevation: 20,
   },
   navItem: { alignItems: "center", justifyContent: "center", flex: 1 },
   navText: { fontSize: 10, marginTop: 4, color: THEME.textSec },
@@ -435,13 +1066,207 @@ const styles = StyleSheet.create({
     bottom: 25,
     elevation: 8,
     borderWidth: 4,
-    borderColor: THEME.bg
+    borderColor: THEME.bg,
   },
   labelAdd: {
     position: "absolute",
     bottom: 10,
     fontSize: 10,
     color: THEME.textSec,
-    fontWeight: "600"
-  }
+    fontWeight: "600",
+  },
+
+  // --- MODAL STYLES (Added from Old Code) ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    minHeight: 400,
+    elevation: 10,
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: THEME.textMain },
+  modalSubtitle: { fontSize: 14, color: THEME.textSec, marginTop: 2 },
+  closeBtn: { padding: 8, borderRadius: 20, backgroundColor: "#F5F5F5" },
+  sectionLabel: {
+    fontSize: 12,
+    color: THEME.textSec,
+    marginBottom: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  statusOptionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  statusChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    backgroundColor: "#F8F9FA",
+    marginBottom: 6,
+    marginRight: 6,
+  },
+  statusChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: THEME.textSec,
+    textTransform: "capitalize",
+  },
+  dynamicForm: { marginTop: 10 },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: {
+    fontSize: 14,
+    color: THEME.textMain,
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  dateInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 50,
+    backgroundColor: "#FAFAFA",
+  },
+  dateInputText: {
+    flex: 1,
+    marginLeft: 10,
+    color: THEME.textMain,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    backgroundColor: "#F5F7FA",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  infoBox: {
+    flexDirection: "row",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  modalFooter: { marginTop: 20, marginBottom: 10 },
+  saveButton: {
+    backgroundColor: THEME.primary,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    shadowColor: THEME.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
+  },
+
+  // --- NEW STYLES FOR BABY DATA FORM ---
+  rowContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 6,
+  },
+  halfInput: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  suffixInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 12,
+    backgroundColor: "#FAFAFA",
+    paddingHorizontal: 12,
+    height: 50,
+  },
+  suffixInput: {
+    flex: 1,
+    fontSize: 14,
+    color: THEME.textMain,
+    height: "100%",
+  },
+  suffixText: {
+    fontSize: 12,
+    color: THEME.textSec,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  genderContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  genderButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    backgroundColor: "#FAFAFA",
+  },
+  genderButtonActive: {
+    backgroundColor: THEME.primary,
+    borderColor: THEME.primary,
+  },
+  genderText: {
+    fontSize: 14,
+    color: THEME.textSec,
+    fontWeight: "600",
+  },
+  genderTextActive: {
+    color: "#FFFFFF",
+  },
+
+  // Clinical Info (Missing in new styles?)
+  clinicalInfoContainer: {
+    marginTop: 4,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 8,
+    padding: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+  },
+  clinicalItem: { flexDirection: "row", alignItems: "center", marginRight: 10 },
+  clinicalLabel: {
+    fontSize: 11,
+    color: THEME.textSec,
+    marginLeft: 6,
+    marginRight: 4,
+  },
+  clinicalValue: { fontSize: 11, fontWeight: "bold", color: THEME.textMain },
 });

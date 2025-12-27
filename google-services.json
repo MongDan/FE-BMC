@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "531724348466",
+    "project_id": "bundamedicalcenter-87f01",
+    "storage_bucket": "bundamedicalcenter-87f01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:531724348466:android:2b765da80b5cd7f671202b",
+        "android_client_info": {
+          "package_name": "com.anonymous.FEBMC"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMOhYnZxpcm14TppGlzUJB392wpM21A0M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

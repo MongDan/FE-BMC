@@ -109,7 +109,7 @@ export default function LoginScreen() {
             <View style={styles.iconCircle}>
               <FontAwesome name="check" size={40} color="#4CAF50" />
             </View>
-            <Text style={styles.successTitle}>Login Berhasil! 🎉</Text>
+            <Text style={styles.successTitle}>Login Berhasil!</Text>
             <Text style={styles.successSubtitle}>
               Mengalihkan ke beranda...
             </Text>
