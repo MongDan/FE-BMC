@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
 } from "react-native";
 import { useParams, useNavigate } from "react-router-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -13,9 +13,6 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 // === HELPERS ===
 const formatDateFull = (dateString) => {
   if (!dateString) return "-";
-
-  // Format dari API lu: "2025-12-20 15:48:00"
-  // Kita ganti spasi dengan "T" agar menjadi format ISO yang valid di semua perangkat (Android/iOS)
   const formattedString = dateString.replace(" ", "T");
   const d = new Date(formattedString);
 
@@ -31,14 +28,13 @@ const formatDateFull = (dateString) => {
     "Sep",
     "Okt",
     "Nov",
-    "Des"
+    "Des",
   ];
 
-  // KRITIK: Jangan pernah pakai getUTC... untuk data yang sudah dalam waktu lokal!
-  const day = d.getDate(); // Ambil tanggal lokal
-  const month = months[d.getMonth()]; // Ambil bulan lokal
-  const hours = d.getHours().toString().padStart(2, "0"); // Jam lokal (15)
-  const minutes = d.getMinutes().toString().padStart(2, "0"); // Menit lokal (48)
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
 
   return `${day} ${month}, ${hours}:${minutes}`;
 };
@@ -64,12 +60,13 @@ export default function KondisiIbuTabs() {
   const [apiData, setApiData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // === Tab Config dengan icon dan unit ===
+  // === Tab Config ===
+  // Note: Unit urine saya hapus dari sini karena akan di-handle manual
   const tabConfig = [
     { key: "nadi", label: "Nadi", unit: "bpm", icon: "heart-pulse" },
     { key: "tekanan", label: "TD", unit: "mmHg", icon: "speedometer" },
     { key: "suhu", label: "Suhu", unit: "°C", icon: "thermometer" },
-    { key: "urine", label: "Urine", unit: "ml", icon: "cup-water" }
+    { key: "urine", label: "Urine", unit: "", icon: "cup-water" },
   ];
 
   // === Fetch Data ===
@@ -97,21 +94,39 @@ export default function KondisiIbuTabs() {
     );
   }, [apiData]);
 
-  // === Render Value per Tab ===
-  const renderValue = (item) => {
+  // === Cek Ketersediaan Data ===
+  // Fungsi ini menentukan apakah kartu harus ditampilkan atau tidak
+  const hasData = (item) => {
     switch (activeTab) {
       case "nadi":
-        return item.nadi_ibu ?? null;
+        return item.nadi_ibu != null;
       case "tekanan":
-        return item.sistolik && item.diastolik
-          ? `${item.sistolik}/${item.diastolik}`
-          : null;
+        return item.sistolik != null && item.diastolik != null;
       case "suhu":
-        return item.suhu_ibu ?? null;
+        return item.suhu_ibu != null;
       case "urine":
-        return item.volume_urine ?? null;
+        // Tampilkan kartu jika SALAH SATU dari ketiga data ini ada
+        return (
+          item.protein != null ||
+          item.aseton != null ||
+          item.volume_urine != null
+        );
       default:
-        return null;
+        return false;
+    }
+  };
+
+  // === Helper Render Value untuk Tab Standar ===
+  const renderStandardValue = (item) => {
+    switch (activeTab) {
+      case "nadi":
+        return item.nadi_ibu;
+      case "tekanan":
+        return `${item.sistolik}/${item.diastolik}`;
+      case "suhu":
+        return item.suhu_ibu;
+      default:
+        return "-";
     }
   };
 
@@ -123,8 +138,8 @@ export default function KondisiIbuTabs() {
     );
   }
 
-  // === Filter data null supaya tidak ditampilkan ===
-  const filteredData = tabData.filter((item) => renderValue(item) !== null);
+  // Filter data berdasarkan tab yang aktif
+  const filteredData = tabData.filter((item) => hasData(item));
 
   return (
     <View style={styles.container}>
@@ -147,7 +162,7 @@ export default function KondisiIbuTabs() {
             key={tab.key}
             style={[
               styles.tabBtn,
-              activeTab === tab.key && styles.tabBtnActive
+              activeTab === tab.key && styles.tabBtnActive,
             ]}
             onPress={() => setActiveTab(tab.key)}
           >
@@ -159,7 +174,7 @@ export default function KondisiIbuTabs() {
             <Text
               style={[
                 styles.tabText,
-                activeTab === tab.key && styles.tabTextActive
+                activeTab === tab.key && styles.tabTextActive,
               ]}
             >
               {tab.label}
@@ -175,21 +190,68 @@ export default function KondisiIbuTabs() {
         ) : (
           filteredData.map((item, idx) => (
             <View key={idx} style={styles.card}>
+              {/* Header Tanggal */}
               <View style={styles.cardDateRow}>
                 <Ionicons name="time-outline" size={14} color="#888" />
                 <Text style={styles.cardDate}>
                   {formatDateFull(item.waktu_catat)}
                 </Text>
               </View>
-              <View style={styles.rowBetween}>
-                <Text style={styles.label}>
-                  {tabConfig.find((t) => t.key === activeTab).label}
-                </Text>
-                <Text style={styles.valueText}>
-                  {renderValue(item)}{" "}
-                  {tabConfig.find((t) => t.key === activeTab).unit}
-                </Text>
-              </View>
+
+              {/* TAMPILAN KHUSUS UNTUK URINE */}
+              {activeTab === "urine" ? (
+                <View style={styles.urineContainer}>
+                  {/* Hanya tampilkan Protein jika ada datanya */}
+                  {item.protein != null && (
+                    <View style={styles.urineRow}>
+                      <Text style={styles.label}>Protein</Text>
+                      <Text style={styles.valueText}>{item.protein}</Text>
+                    </View>
+                  )}
+
+                  {/* Hanya tampilkan Aseton jika ada datanya */}
+                  {item.aseton != null && (
+                    <View
+                      style={[
+                        styles.urineRow,
+                        // Tambahkan border top hanya jika ada item sebelumnya (misal protein ada)
+                        item.protein != null && styles.borderTop,
+                      ]}
+                    >
+                      <Text style={styles.label}>Aseton</Text>
+                      <Text style={styles.valueText}>{item.aseton}</Text>
+                    </View>
+                  )}
+
+                  {/* Hanya tampilkan Volume jika ada datanya */}
+                  {item.volume_urine != null && (
+                    <View
+                      style={[
+                        styles.urineRow,
+                        // Tambahkan border top jika ada item sebelumnya (protein ATAU aseton ada)
+                        (item.protein != null || item.aseton != null) &&
+                          styles.borderTop,
+                      ]}
+                    >
+                      <Text style={styles.label}>Volume</Text>
+                      <Text style={styles.valueText}>
+                        {item.volume_urine} ml
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                /* TAMPILAN STANDAR (Nadi, TD, Suhu) */
+                <View style={styles.rowBetween}>
+                  <Text style={styles.label}>
+                    {tabConfig.find((t) => t.key === activeTab).label}
+                  </Text>
+                  <Text style={styles.valueText}>
+                    {renderStandardValue(item)}{" "}
+                    {tabConfig.find((t) => t.key === activeTab).unit}
+                  </Text>
+                </View>
+              )}
             </View>
           ))
         )}
@@ -210,7 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: "#EEE",
-    paddingTop: 40
+    paddingTop: 40,
   },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
@@ -219,7 +281,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#EEE"
+    borderBottomColor: "#EEE",
   },
   tabBtn: {
     flex: 1,
@@ -229,7 +291,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: "#F5F5F5",
-    marginHorizontal: 4
+    marginHorizontal: 4,
   },
   tabBtnActive: { backgroundColor: "#0277BD" },
   tabText: { marginLeft: 6, fontWeight: "600", color: "#666", fontSize: 14 },
@@ -238,7 +300,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 50
+    marginTop: 50,
   },
   emptyIconBg: {
     width: 60,
@@ -247,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0E0E0",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10
+    marginBottom: 10,
   },
   emptyText: { color: "#999", fontStyle: "italic", fontSize: 14 },
   card: {
@@ -259,7 +321,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2
+    shadowRadius: 2,
   },
   cardDateRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   cardDate: {
@@ -267,13 +329,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     color: "#888",
-    textTransform: "uppercase"
+    textTransform: "uppercase",
   },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
   },
   label: { fontSize: 14, color: "#555", fontWeight: "500" },
-  valueText: { fontSize: 14, color: "#0277BD", fontWeight: "bold" }
+  valueText: { fontSize: 16, color: "#0277BD", fontWeight: "bold" },
+
+  // === STYLE KHUSUS URINE ===
+  urineContainer: {
+    marginTop: 4,
+  },
+  urineRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  borderTop: {
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+  },
 });

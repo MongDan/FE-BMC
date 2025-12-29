@@ -10,13 +10,13 @@ import {
   TextInput,
   StatusBar,
   Modal,
-  Pressable // Tambahan untuk Modal
+  Pressable,
 } from "react-native";
 import {
   MaterialIcons,
   MaterialCommunityIcons,
   Ionicons,
-  Feather // Tambahan untuk Icon Modal
+  Feather,
 } from "@expo/vector-icons";
 import { useParams, useNavigate } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,7 +24,6 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { scheduleRutinReminder } from "../../src/NotificationService";
 
-// --- UPDATE THEME (Supaya support warna Success/Danger/Warning Modal) ---
 const THEME = {
   bg: "#F4F6F8",
   card: "#FFFFFF",
@@ -34,10 +33,9 @@ const THEME = {
   textSec: "#78909C",
   border: "#CFD8DC",
   inputBg: "#FAFAFA",
-  // Tambahan warna untuk Modal
   success: "#2E7D32",
   danger: "#E53935",
-  warning: "#FFB300"
+  warning: "#FFB300",
 };
 
 const toLocalISOString = (date) => {
@@ -47,7 +45,6 @@ const toLocalISOString = (date) => {
 };
 
 // ======================= COMPONENT: CUSTOM MODAL ALERT ==========================
-// (Diambil langsung dari desain Per4jam yang Anda berikan)
 function CustomAlertModal({
   isVisible,
   onClose,
@@ -56,13 +53,13 @@ function CustomAlertModal({
   type = "info",
   confirmText,
   onConfirm,
-  cancelText = "Tutup"
+  cancelText = "Tutup",
 }) {
   const iconMap = {
     danger: { name: "alert-triangle", color: THEME.danger },
     success: { name: "check-circle", color: THEME.success },
     info: { name: "info", color: THEME.primary },
-    confirm: { name: "help-circle", color: THEME.warning }
+    confirm: { name: "help-circle", color: THEME.warning },
   };
 
   const { name, color: iconColor } = iconMap[type] || iconMap.info;
@@ -82,7 +79,7 @@ function CustomAlertModal({
           <View
             style={[
               modalStyles.iconCircle,
-              { backgroundColor: iconColor + "15" }
+              { backgroundColor: iconColor + "15" },
             ]}
           >
             <Feather name={name} size={30} color={iconColor} />
@@ -96,7 +93,7 @@ function CustomAlertModal({
                   style={[
                     modalStyles.button,
                     modalStyles.ghostButton,
-                    { flex: 1 }
+                    { flex: 1 },
                   ]}
                   onPress={onClose}
                 >
@@ -108,8 +105,8 @@ function CustomAlertModal({
                     {
                       backgroundColor: mainButtonColor,
                       flex: 1,
-                      marginLeft: 10
-                    }
+                      marginLeft: 10,
+                    },
                   ]}
                   onPress={onConfirm}
                 >
@@ -120,7 +117,7 @@ function CustomAlertModal({
               <Pressable
                 style={[
                   modalStyles.button,
-                  { backgroundColor: singleButtonColor, minWidth: "50%" }
+                  { backgroundColor: singleButtonColor, minWidth: "50%" },
                 ]}
                 onPress={onClose}
               >
@@ -133,10 +130,9 @@ function CustomAlertModal({
     </Modal>
   );
 }
-// ============================================================================
 
 export default function Per30Menit() {
-  const { id } = useParams();
+  const { id } = useParams(); // ID PARTOGRAF
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -154,6 +150,8 @@ export default function Per30Menit() {
   const [hisDurasi, setHisDurasi] = useState("");
 
   const [isPickerVisible, setPickerVisible] = useState(false);
+
+  // State indikator draft
   const [hasDraft, setHasDraft] = useState(false);
 
   // --- STATE UNTUK CUSTOM MODAL ---
@@ -161,14 +159,13 @@ export default function Per30Menit() {
   const [modalContent, setModalContent] = useState({
     title: "",
     message: "",
-    type: "info", // info, success, danger, warning, confirm
+    type: "info",
     onConfirm: null,
     confirmText: "Ya",
     cancelText: "Tutup",
-    onClose: null // Custom close handler (opsional)
+    onClose: null,
   });
 
-  // Fungsi Helper untuk mempermudah pemanggilan modal
   const showCustomAlert = (
     title,
     message,
@@ -182,21 +179,67 @@ export default function Per30Menit() {
       confirmText: "OK",
       cancelText: "Tutup",
       onConfirm: null,
-      onClose: customOnClose // Callback jika tombol tutup/ok ditekan
+      onClose: customOnClose,
     });
     setModalVisible(true);
   };
 
+  // 1. LOAD DATA DRAFT (KONTRAKSI & FORM INPUT) SAAT MASUK HALAMAN
   useEffect(() => {
     const init = async () => {
       const token = await AsyncStorage.getItem("userToken");
       setUserToken(token);
+
+      // A. Cek Draft Kontraksi (dari Stopwatch)
       const draftKey = `kontraksi_draft_${id}`;
       const draftData = await AsyncStorage.getItem(draftKey);
-      if (draftData && JSON.parse(draftData).length > 0) setHasDraft(true);
+      if (draftData && JSON.parse(draftData).length > 0) {
+        setHasDraft(true);
+      } else {
+        setHasDraft(false);
+      }
+
+      // B. Cek Draft Form Input (Auto-save form)
+      // Ini yang bikin data gak hilang pas balik dari halaman lain
+      const formKey = `form_input_draft_${id}`;
+      const savedForm = await AsyncStorage.getItem(formKey);
+      if (savedForm) {
+        try {
+          const parsedForm = JSON.parse(savedForm);
+          if (parsedForm.djj) setDjj(parsedForm.djj);
+          if (parsedForm.nadi) setNadi(parsedForm.nadi);
+          if (parsedForm.hisFrekuensi) setHisFrekuensi(parsedForm.hisFrekuensi);
+          if (parsedForm.hisDurasi) setHisDurasi(parsedForm.hisDurasi);
+          // Hanya set waktu kalau valid, kalau tidak pakai waktu sekarang
+          if (parsedForm.waktuCatat)
+            setWaktuCatat(new Date(parsedForm.waktuCatat));
+        } catch (e) {
+          console.log("Error parsing form draft", e);
+        }
+      }
     };
     init();
   }, [id]);
+
+  // 2. AUTO-SAVE FORM INPUT SETIAP ADA PERUBAHAN
+  // Setiap abang ngetik atau ubah waktu, dia nyimpen ke storage
+  useEffect(() => {
+    const saveFormDraft = async () => {
+      const formKey = `form_input_draft_${id}`;
+      const formData = {
+        djj,
+        nadi,
+        hisFrekuensi,
+        hisDurasi,
+        waktuCatat: waktuCatat.toISOString(),
+      };
+      await AsyncStorage.setItem(formKey, JSON.stringify(formData));
+    };
+
+    // Pakai timeout biar gak terlalu sering write ke storage (debounce 500ms)
+    const timeoutId = setTimeout(saveFormDraft, 500);
+    return () => clearTimeout(timeoutId);
+  }, [djj, nadi, hisFrekuensi, hisDurasi, waktuCatat, id]);
 
   const handleFrekuensiChange = (text) => {
     if (text === "") {
@@ -207,7 +250,6 @@ export default function Per30Menit() {
     if (isNaN(num)) return;
 
     if (num > 5) {
-      // Gunakan Modal Warning
       showCustomAlert(
         "Nilai Tidak Valid",
         "Maksimal frekuensi kontraksi adalah 5 kali dalam 10 menit (Tachysystole).",
@@ -219,8 +261,48 @@ export default function Per30Menit() {
     }
   };
 
+  // === LOGIC SYNC DRAFT (DARI CHAT) ===
+  const syncDraftKontraksi = async (newCatatanId, token) => {
+    const draftKey = `kontraksi_draft_${id}`;
+    try {
+      const draftStr = await AsyncStorage.getItem(draftKey);
+      if (!draftStr) return;
+
+      const drafts = JSON.parse(draftStr);
+      if (drafts.length === 0) return;
+
+      console.log(
+        `Syncing ${drafts.length} drafts ke catatan ID: ${newCatatanId}...`
+      );
+
+      // Loop upload satu per satu ke endpoint relasi
+      for (const item of drafts) {
+        await fetch(
+          `https://restful-api-bmc-production-v2.up.railway.app/api/catatan-partograf/${newCatatanId}/kontraksi`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              waktu_mulai: item.waktu_mulai,
+              waktu_selesai: item.waktu_selesai,
+            }),
+          }
+        );
+      }
+
+      // Hapus draft KONTRAKSI setelah sukses
+      await AsyncStorage.removeItem(draftKey);
+      setHasDraft(false);
+      console.log("Sync Complete!");
+    } catch (e) {
+      console.error("Sync Error", e);
+    }
+  };
+
   const submitVitals = async () => {
-    // Validasi Basic
     if (!djj || !nadi)
       return showCustomAlert(
         "Form Kosong",
@@ -228,7 +310,6 @@ export default function Per30Menit() {
         "danger"
       );
 
-    // Validasi Double Check
     if (hisFrekuensi && parseInt(hisFrekuensi) > 5) {
       return showCustomAlert(
         "Validasi Gagal",
@@ -240,13 +321,15 @@ export default function Per30Menit() {
     setLoading(true);
     try {
       const waktuLokal = toLocalISOString(waktuCatat);
+
+      // 1. POST DATA CATATAN UTAMA (DJJ, NADI, dll)
       const res = await fetch(
         `https://restful-api-bmc-production-v2.up.railway.app/api/partograf/${id}/catatan`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}`
+            Authorization: `Bearer ${userToken}`,
           },
           body: JSON.stringify({
             partograf_id: id,
@@ -254,18 +337,29 @@ export default function Per30Menit() {
             djj: djj,
             nadi_ibu: nadi,
             kontraksi_frekuensi: hisFrekuensi ? parseInt(hisFrekuensi) : null,
-            kontraksi_durasi: hisDurasi ? parseInt(hisDurasi) : null
-          })
+            kontraksi_durasi: hisDurasi ? parseInt(hisDurasi) : null,
+          }),
         }
       );
       const json = await res.json();
 
-      if (res.ok) {
+      if (res.ok && json.data?.id) {
+        // DAPAT ID BARU DARI SERVER
+        const newId = json.data.id;
+
+        // 2. JALANKAN SYNC KONTRAKSI JIKA ADA DRAFT
+        if (hasDraft) {
+          await syncDraftKontraksi(newId, userToken);
+        }
+
+        // 3. BERSIHKAN DRAFT FORM INPUT KARENA SUDAH DISIMPAN
+        await AsyncStorage.removeItem(`form_input_draft_${id}`);
+
         await scheduleRutinReminder(namaPasien, waktuCatat);
-        // SUKSES: Tampilkan modal success, lalu navigasi back saat ditutup
+
         showCustomAlert(
           "Berhasil",
-          "Data Pantau Rutin tersimpan.",
+          "Data Pantau Rutin & Kontraksi tersimpan.",
           "success",
           () => {
             setModalVisible(false);
@@ -273,9 +367,14 @@ export default function Per30Menit() {
           }
         );
       } else {
-        showCustomAlert("Gagal", json.message, "danger");
+        showCustomAlert(
+          "Gagal",
+          json.message || "Gagal menyimpan data",
+          "danger"
+        );
       }
     } catch (e) {
+      console.error(e);
       showCustomAlert("Error", "Gagal menghubungi server.", "danger");
     } finally {
       setLoading(false);
@@ -290,7 +389,7 @@ export default function Per30Menit() {
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
 
-      {/* --- IMPLEMENTASI CUSTOM ALERT MODAL BARU --- */}
+      {/* MODAL ALERT */}
       <CustomAlertModal
         isVisible={modalVisible}
         onClose={() => {
@@ -307,7 +406,6 @@ export default function Per30Menit() {
         onConfirm={modalContent.onConfirm}
         cancelText={modalContent.cancelText}
       />
-      {/* ------------------------------------------- */}
 
       <View style={styles.appBar}>
         <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
@@ -318,18 +416,36 @@ export default function Per30Menit() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        {/* TOMBOL STOPWATCH */}
         <TouchableOpacity onPress={openMonitor} style={styles.quickAccessBtn}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <MaterialCommunityIcons name="timer-sand" size={24} color="#FFF" />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.quickTitle}>Buka Alat Bantu Hitung</Text>
               <Text style={styles.quickSubtitle}>
-                Gunakan Stopwatch Digital
+                {hasDraft
+                  ? "Data Tersimpan di Memori"
+                  : "Gunakan Stopwatch Digital"}
               </Text>
             </View>
           </View>
           <MaterialIcons name="chevron-right" size={24} color="#FFF" />
         </TouchableOpacity>
+
+        {/* BADGE WARNING DRAFT */}
+        {hasDraft && (
+          <View style={styles.draftBadge}>
+            <MaterialCommunityIcons
+              name="cloud-upload"
+              size={20}
+              color="#E65100"
+            />
+            <Text style={styles.draftText}>
+              Ada data kontraksi dari stopwatch. Simpan formulir ini untuk
+              mengirim data tersebut ke server.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.medicalCard}>
           <View style={styles.cardHeader}>
@@ -367,16 +483,32 @@ export default function Per30Menit() {
           </View>
 
           {/* INPUT MANUAL KONTRAKSI */}
-          <Text style={[styles.label, { color: "#E65100", marginTop: 8 }]}>
-            Input Manual Kontraksi
-          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 16,
+            }}
+          >
+            <Text style={[styles.label, { color: "#E65100", marginBottom: 0 }]}>
+              Input Manual Kontraksi
+            </Text>
+            {hasDraft && (
+              <Text
+                style={{ fontSize: 10, color: "#888", fontStyle: "italic" }}
+              >
+                (Akan disinkronkan dengan stopwatch)
+              </Text>
+            )}
+          </View>
           <View style={styles.formRow}>
             <View style={styles.inputGroup}>
               <Text style={styles.subLabel}>Frekuensi (Max 5)</Text>
               <TextInput
                 style={styles.input}
                 keyboardType="numeric"
-                placeholder="3"
+                placeholder={hasDraft ? "Auto" : "3"}
                 value={hisFrekuensi}
                 onChangeText={handleFrekuensiChange}
                 maxLength={1}
@@ -388,7 +520,7 @@ export default function Per30Menit() {
               <TextInput
                 style={styles.input}
                 keyboardType="numeric"
-                placeholder="40"
+                placeholder={hasDraft ? "Auto" : "40"}
                 value={hisDurasi}
                 onChangeText={setHisDurasi}
                 maxLength={3}
@@ -441,7 +573,9 @@ export default function Per30Menit() {
                   color="#FFF"
                   style={{ marginRight: 8 }}
                 />
-                <Text style={styles.saveBtnText}>SIMPAN DATA</Text>
+                <Text style={styles.saveBtnText}>
+                  {hasDraft ? "SIMPAN & SYNC KONTRAKSI" : "SIMPAN DATA"}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -460,7 +594,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0"
+    borderBottomColor: "#E0E0E0",
   },
   appBarTitle: { fontSize: 16, fontWeight: "700", color: THEME.textMain },
 
@@ -472,10 +606,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    elevation: 3
+    elevation: 3,
   },
   quickTitle: { color: "#FFF", fontSize: 14, fontWeight: "bold" },
   quickSubtitle: { color: "#CFD8DC", fontSize: 11 },
+
+  // STYLE BARU UNTUK BADGE DRAFT
+  draftBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3E0", // Oranye muda
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#FFE0B2",
+  },
+  draftText: {
+    color: "#E65100", // Oranye tua
+    fontSize: 12,
+    marginLeft: 10,
+    flex: 1,
+    fontWeight: "500",
+    lineHeight: 16,
+  },
 
   medicalCard: {
     backgroundColor: "#FFF",
@@ -483,7 +637,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: THEME.border,
-    elevation: 2
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
@@ -491,7 +645,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
-    paddingBottom: 8
+    paddingBottom: 8,
   },
   cardTitle: { fontSize: 13, fontWeight: "700", marginLeft: 8 },
 
@@ -501,7 +655,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: THEME.textMain,
-    marginBottom: 8
+    marginBottom: 8,
   },
   subLabel: { fontSize: 11, color: THEME.textSec, marginBottom: 4 },
 
@@ -512,7 +666,7 @@ const styles = StyleSheet.create({
     borderColor: THEME.border,
     borderRadius: 4,
     backgroundColor: THEME.inputBg,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   input: {
     borderWidth: 1,
@@ -521,7 +675,7 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     backgroundColor: THEME.inputBg,
-    color: THEME.textMain
+    color: THEME.textMain,
   },
 
   divider: { height: 1, backgroundColor: "#EEEEEE", marginVertical: 16 },
@@ -531,19 +685,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingVertical: 14,
     alignItems: "center",
-    marginTop: 20
+    marginTop: 20,
   },
-  saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 }
+  saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 },
 });
 
-// --- STYLES KHUSUS MODAL BARU (Disalin dari source) ---
 const modalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
   },
   alertBox: {
     width: "100%",
@@ -551,7 +704,7 @@ const modalStyles = StyleSheet.create({
     borderRadius: 18,
     padding: 30,
     alignItems: "center",
-    elevation: 10
+    elevation: 10,
   },
   iconCircle: {
     width: 60,
@@ -559,26 +712,26 @@ const modalStyles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15
+    marginBottom: 15,
   },
   title: {
     fontSize: 20,
     fontWeight: "bold",
     color: THEME.textMain,
     marginBottom: 10,
-    textAlign: "center"
+    textAlign: "center",
   },
   message: {
     fontSize: 15,
     color: THEME.textMain,
     textAlign: "center",
     marginBottom: 30,
-    lineHeight: 22
+    lineHeight: 22,
   },
   buttonContainer: {
     flexDirection: "row",
     width: "100%",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   button: {
     paddingVertical: 14,
@@ -586,25 +739,25 @@ const modalStyles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 120,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   buttonText: {
     color: "#FFF",
     fontWeight: "bold",
     fontSize: 14,
-    textAlign: "center"
+    textAlign: "center",
   },
   ghostButton: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: THEME.border,
     minWidth: 120,
-    marginRight: 10
+    marginRight: 10,
   },
   ghostButtonText: {
     color: THEME.textMain,
     fontWeight: "600",
     fontSize: 14,
-    textAlign: "center"
-  }
+    textAlign: "center",
+  },
 });

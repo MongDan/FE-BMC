@@ -5,29 +5,18 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
 } from "react-native";
 import { useParams, useNavigate } from "react-router-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-// === HELPERS ===
-const formatTime = (dateString) => {
-  if (!dateString) return "-";
-  // Fix format "YYYY-MM-DD HH:mm:ss" menjadi "YYYY-MM-DDTHH:mm:ss" agar aman di semua device
-  const safeDate = dateString.replace(" ", "T");
-  const d = new Date(safeDate);
-  const hours = d.getUTCHours().toString().padStart(2, "0");
-  const minutes = d.getUTCMinutes().toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
-};
+// === HELPERS (PERBAIKAN JAM) ===
 
+// Helper 1: Format Tanggal Lengkap
 const formatDateFull = (dateString) => {
   if (!dateString) return "-";
-
-  // Format dari API lu: "2025-12-20 15:48:00"
-  // Kita ganti spasi dengan "T" agar menjadi format ISO yang valid di semua perangkat (Android/iOS)
-  const formattedString = dateString.replace(" ", "T");
-  const d = new Date(formattedString);
+  const safeDate = dateString.replace(" ", "T");
+  const d = new Date(safeDate);
 
   const months = [
     "Jan",
@@ -41,33 +30,34 @@ const formatDateFull = (dateString) => {
     "Sep",
     "Okt",
     "Nov",
-    "Des"
+    "Des",
   ];
 
-  // KRITIK: Jangan pernah pakai getUTC... untuk data yang sudah dalam waktu lokal!
-  const day = d.getDate(); // Ambil tanggal lokal
-  const month = months[d.getMonth()]; // Ambil bulan lokal
-  const hours = d.getHours().toString().padStart(2, "0"); // Jam lokal (15)
-  const minutes = d.getMinutes().toString().padStart(2, "0"); // Menit lokal (48)
+  // PERBAIKAN: Pakai getHours() biasa, JANGAN getUTC...
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
 
   return `${day} ${month}, ${hours}:${minutes}`;
 };
 
-// Helper baru untuk membuat judul rentang 10 menit berdasarkan waktu catat
+// Helper 2: Judul Rentang 10 menit
 const formatRangeTitle = (dateString) => {
   if (!dateString) return "-";
+  // Ganti spasi dengan T agar valid di Android
   const safeDate = dateString.replace(" ", "T");
   const d = new Date(safeDate);
 
-  // Waktu Mulai (Sesuai Waktu Catat)
-  const startH = d.getUTCHours().toString().padStart(2, "0");
-  const startM = d.getUTCMinutes().toString().padStart(2, "0");
+  // PERBAIKAN: Gunakan Waktu Lokal (getHours), bukan UTC
+  const startH = d.getHours().toString().padStart(2, "0");
+  const startM = d.getMinutes().toString().padStart(2, "0");
 
-  // Waktu Selesai (+10 menit)
+  // Tambah 10 menit
   const dEnd = new Date(d);
-  dEnd.setUTCMinutes(d.getUTCMinutes() + 10);
-  const endH = dEnd.getUTCHours().toString().padStart(2, "0");
-  const endM = dEnd.getUTCMinutes().toString().padStart(2, "0");
+  dEnd.setMinutes(d.getMinutes() + 10); // setMinutes otomatis handle pergantian jam
+  const endH = dEnd.getHours().toString().padStart(2, "0");
+  const endM = dEnd.getMinutes().toString().padStart(2, "0");
 
   return `${startH}:${startM} - ${endH}:${endM}`;
 };
@@ -142,35 +132,63 @@ export default function KemajuanPersalinan() {
       );
   }, [apiData]);
 
-  // LOGIKA BARU: Grouping berdasarkan Waktu Catat
+  // === LOGIKA DATA KONTRAKSI (DISERAGAMKAN) ===
   const kontraksiGroups = useMemo(() => {
-    // 1. Ambil data yang punya array kontraksi (meskipun kosong tetap diambil jika ingin menampilkan slot kosong,
-    // tapi biasanya kita filter yang ada isinya atau sesuai kebutuhan.
-    // Di sini saya filter yang array kontraksinya tidak null/undefined)
-    const validData = (apiData || []).filter((item) =>
-      Array.isArray(item.kontraksi)
-    );
+    // 1. Filter data yang punya kontraksi (baik manual maupun array stopwatch)
+    const validData = (apiData || []).filter((item) => {
+      const hasDetailed =
+        Array.isArray(item.kontraksi) && item.kontraksi.length > 0;
+      const hasManual =
+        item.kontraksi_frekuensi !== null && item.kontraksi_frekuensi > 0;
+      return hasDetailed || hasManual;
+    });
 
-    // 2. Urutkan berdasarkan waktu_catat terbaru di atas
+    // 2. Urutkan (Terbaru di atas)
     validData.sort(
       (a, b) =>
         new Date(b.waktu_catat.replace(" ", "T")) -
         new Date(a.waktu_catat.replace(" ", "T"))
     );
 
-    // 3. Map menjadi format tampilan
-    return validData
-      .map((item) => {
-        // Data kontraksi spesifik milik catatan ini
-        const listKontraksi = item.kontraksi || [];
+    // 3. Map jadi format seragam (Hitung Rata-rata untuk stopwatch)
+    return validData.map((item) => {
+      const listKontraksi = item.kontraksi || [];
+      const hasDetailed = listKontraksi.length > 0;
+      const isManual = !hasDetailed;
 
-        return {
-          title: formatRangeTitle(item.waktu_catat), // Judul misal: 16:00 - 16:10
-          count: listKontraksi.length,
-          data: listKontraksi
-        };
-      })
-      .filter((group) => group.count > 0); // Opsional: Hanya tampilkan jika ada kontraksi di jam tersebut
+      let displayFreq = 0;
+      let displayAvgDur = 0;
+
+      if (isManual) {
+        // Ambil langsung dari input manual
+        displayFreq = item.kontraksi_frekuensi || 0;
+        displayAvgDur = item.kontraksi_durasi || 0;
+      } else {
+        // HITUNG MANUAL DARI DATA STOPWATCH
+        // Frekuensi = jumlah data di array
+        displayFreq = listKontraksi.length;
+
+        // Hitung total detik
+        const totalSeconds = listKontraksi.reduce((acc, k) => {
+          const start = new Date(k.waktu_mulai);
+          const end = new Date(k.waktu_selesai);
+          const diff = (end - start) / 1000; // milisecond to second
+          return acc + (diff > 0 ? diff : 0);
+        }, 0);
+
+        // Rata-rata = Total detik / Frekuensi
+        displayAvgDur =
+          displayFreq > 0 ? Math.round(totalSeconds / displayFreq) : 0;
+      }
+
+      return {
+        title: formatRangeTitle(item.waktu_catat),
+        isManual: isManual,
+        frequency: displayFreq,
+        avgDuration: displayAvgDur,
+        count: displayFreq, // Badge jumlah
+      };
+    });
   }, [apiData]);
 
   if (loading) {
@@ -191,7 +209,6 @@ export default function KemajuanPersalinan() {
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Kemajuan Persalinan</Text>
         <View style={{ width: 24 }} />
       </View>
@@ -201,7 +218,7 @@ export default function KemajuanPersalinan() {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === "pembukaan" && styles.tabBtnActive
+            activeTab === "pembukaan" && styles.tabBtnActive,
           ]}
           onPress={() => setActiveTab("pembukaan")}
         >
@@ -213,7 +230,7 @@ export default function KemajuanPersalinan() {
           <Text
             style={[
               styles.tabText,
-              activeTab === "pembukaan" && styles.tabTextActive
+              activeTab === "pembukaan" && styles.tabTextActive,
             ]}
           >
             Pembukaan
@@ -223,7 +240,7 @@ export default function KemajuanPersalinan() {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === "kontraksi" && styles.tabBtnActive
+            activeTab === "kontraksi" && styles.tabBtnActive,
           ]}
           onPress={() => setActiveTab("kontraksi")}
         >
@@ -235,7 +252,7 @@ export default function KemajuanPersalinan() {
           <Text
             style={[
               styles.tabText,
-              activeTab === "kontraksi" && styles.tabTextActive
+              activeTab === "kontraksi" && styles.tabTextActive,
             ]}
           >
             Kontraksi
@@ -280,7 +297,7 @@ export default function KemajuanPersalinan() {
                               styles.dot,
                               item.penurunan_kepala >= num
                                 ? styles.dotActive
-                                : styles.dotInactive
+                                : styles.dotInactive,
                             ]}
                           />
                         ))}
@@ -300,7 +317,7 @@ export default function KemajuanPersalinan() {
           </>
         )}
 
-        {/* TAB KONTRAKSI */}
+        {/* TAB KONTRAKSI (SUDAH DISERAGAMKAN) */}
         {activeTab === "kontraksi" && (
           <>
             {(kontraksiGroups || []).length === 0 ? (
@@ -314,39 +331,49 @@ export default function KemajuanPersalinan() {
                       <Text style={styles.countText}>{group.count}x</Text>
                     </View>
                   </View>
-                  <View>
-                    <View style={styles.thRow}>
-                      <Text style={styles.th}>MULAI</Text>
-                      <Text style={styles.th}>SELESAI</Text>
-                      <Text style={[styles.th, { textAlign: "right" }]}>
-                        DURASI
+
+                  <View style={styles.manualContainer}>
+                    {/* Label Sumber Data */}
+                    <View style={styles.manualRow}>
+                      <MaterialCommunityIcons
+                        name={
+                          group.isManual
+                            ? "pencil-box-outline"
+                            : "timer-outline"
+                        }
+                        size={20}
+                        color="#666"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.manualInfoText}>
+                        {group.isManual
+                          ? "Data Input Manual"
+                          : "Data Stopwatch (Digital)"}
                       </Text>
                     </View>
-                    {group.data.map((k, kIdx) => {
-                      const start = new Date(k.waktu_mulai);
-                      const end = new Date(k.waktu_selesai);
-                      // Hitung durasi
-                      const durasi = Math.round((end - start) / 1000);
-                      return (
-                        <View key={kIdx} style={styles.tr}>
-                          <Text style={styles.td}>
-                            {formatTime(k.waktu_mulai)}
-                          </Text>
-                          <Text style={styles.td}>
-                            {formatTime(k.waktu_selesai)}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.td,
-                              styles.tdBold,
-                              { textAlign: "right" }
-                            ]}
-                          >
-                            {durasi}"
-                          </Text>
-                        </View>
-                      );
-                    })}
+
+                    {/* Kotak Statistik Seragam */}
+                    <View style={styles.manualStatsBox}>
+                      <View style={styles.manualStatItem}>
+                        <Text style={styles.manualStatLabel}>Frekuensi</Text>
+                        <Text style={styles.manualStatValue}>
+                          {group.frequency}
+                          <Text style={styles.manualStatUnit}>x / 10 mnt</Text>
+                        </Text>
+                      </View>
+
+                      <View style={styles.manualDividerVertical} />
+
+                      <View style={styles.manualStatItem}>
+                        <Text style={styles.manualStatLabel}>
+                          Durasi Rata-rata
+                        </Text>
+                        <Text style={styles.manualStatValue}>
+                          {group.avgDuration}
+                          <Text style={styles.manualStatUnit}> detik</Text>
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
               ))
@@ -369,7 +396,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: "#EEE",
-    paddingTop: 40
+    paddingTop: 40,
   },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
@@ -378,7 +405,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#EEE"
+    borderBottomColor: "#EEE",
   },
   tabBtn: {
     flex: 1,
@@ -388,7 +415,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: "#F5F5F5",
-    marginHorizontal: 4
+    marginHorizontal: 4,
   },
   tabBtnActive: { backgroundColor: "#0277BD" },
   tabText: { marginLeft: 6, fontWeight: "600", color: "#666", fontSize: 14 },
@@ -397,7 +424,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 50
+    marginTop: 50,
   },
   emptyIconBg: {
     width: 60,
@@ -406,7 +433,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0E0E0",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10
+    marginBottom: 10,
   },
   emptyText: { color: "#999", fontStyle: "italic", fontSize: 14 },
   card: {
@@ -418,7 +445,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2
+    shadowRadius: 2,
   },
   cardDateRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   cardDate: {
@@ -426,14 +453,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     color: "#888",
-    textTransform: "uppercase"
+    textTransform: "uppercase",
   },
   barContainer: { marginBottom: 10 },
   barHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginBottom: 8
+    marginBottom: 8,
   },
   barLabel: { fontSize: 14, color: "#555", fontWeight: "500" },
   barValue: { fontSize: 18, fontWeight: "bold", color: "#0277BD" },
@@ -444,7 +471,7 @@ const styles = StyleSheet.create({
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
   },
   label: { fontSize: 14, color: "#555", fontWeight: "500" },
   dotsContainer: { flexDirection: "row", alignItems: "center" },
@@ -455,20 +482,20 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: "bold",
     color: "#0277BD",
-    fontSize: 16
+    fontSize: 16,
   },
   noDataText: {
     fontSize: 12,
     color: "#AAA",
     fontStyle: "italic",
-    marginBottom: 8
+    marginBottom: 8,
   },
   cardNoPadding: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     marginBottom: 16,
     elevation: 2,
-    overflow: "hidden"
+    overflow: "hidden",
   },
   groupHeader: {
     flexDirection: "row",
@@ -476,32 +503,66 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#E1F5FE",
     paddingVertical: 10,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
   },
   groupTitle: { fontSize: 14, fontWeight: "bold", color: "#0277BD" },
   countBadge: {
     backgroundColor: "#FFF",
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4
+    borderRadius: 4,
   },
   countText: { fontSize: 12, fontWeight: "bold", color: "#0277BD" },
-  thRow: {
+
+  // === STYLE UNIFIED (SAMA SEMUA) ===
+  manualContainer: {
+    padding: 16,
+  },
+  manualRow: {
     flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  manualInfoText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  manualStatsBox: {
+    flexDirection: "row",
     backgroundColor: "#FAFAFA",
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEE"
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "space-around",
+    borderWidth: 1,
+    borderColor: "#EEE",
   },
-  th: { flex: 1, fontSize: 11, fontWeight: "bold", color: "#888" },
-  tr: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5"
+  manualStatItem: {
+    alignItems: "center",
+    flex: 1,
   },
-  td: { flex: 1, fontSize: 13, color: "#444" },
-  tdBold: { fontWeight: "bold", color: "#0277BD" }
+  manualStatLabel: {
+    fontSize: 11,
+    color: "#888",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    fontWeight: "600",
+  },
+  manualStatValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  manualStatUnit: {
+    fontSize: 12,
+    fontWeight: "normal",
+    color: "#666",
+  },
+  manualDividerVertical: {
+    width: 1,
+    height: "80%",
+    backgroundColor: "#DDD",
+    marginHorizontal: 8,
+  },
 });
