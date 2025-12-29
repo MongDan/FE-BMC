@@ -203,7 +203,8 @@ export default function Per4jam() {
 
   const handleChange = (key, value) => setForm((p) => ({ ...p, [key]: value }));
 
-  const handleSubmit = async () => {
+  // --- FUNGSI MURNI HIT API (UNTUK SIMPAN DATA TANPA ALERT SUKSES) ---
+  const processSaveData = async () => {
     setLoading(true);
     try {
       const safeInt = (v) => {
@@ -248,15 +249,9 @@ export default function Per4jam() {
             await scheduleVTReminder(namaPasien, waktuCatat);
           }
         } catch (e) {}
-        setModalContent({
-          title: "Sukses",
-          message: "Data pemeriksaan berhasil disimpan.",
-          type: "success",
-          onClose: () => {
-            setModalVisible(false);
-            navigate(-1);
-          }
-        });
+
+        // LANGSUNG BALIK KE HALAMAN SEBELUMNYA (Tanpa Alert Sukses)
+        navigate(-1);
       } else {
         const errorJson = await res.json();
         setModalContent({
@@ -264,16 +259,58 @@ export default function Per4jam() {
           message: errorJson.message || "Gagal menyimpan ke database.",
           type: "danger"
         });
+        setModalVisible(true);
       }
     } catch (e) {
       setModalContent({
         title: "Masalah Koneksi",
-        message: "Gagal terhubung ke Railway.",
+        message: "Gagal terhubung ke server.",
         type: "danger"
       });
+      setModalVisible(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    // 1. Validasi Batas Medis
+    let warningMsg = "";
+
+    if (form.suhu) {
+      const suhuVal = parseFloat(form.suhu);
+      if (suhuVal > 37.5 || suhuVal < 35.0) {
+        warningMsg += `• Suhu Ibu (${suhuVal}°C) di luar batas normal.\n`;
+      }
+    }
+
+    if (form.sistolik && form.diastolik) {
+      const sis = parseInt(form.sistolik);
+      const dia = parseInt(form.diastolik);
+      if (sis >= 140 || dia >= 90 || sis < 90 || dia < 60) {
+        warningMsg += `• Tekanan Darah (${sis}/${dia} mmHg) di luar batas normal.\n`;
+      }
+    }
+
+    // 2. Alur Simpan:
+    if (warningMsg) {
+      // Jika ada peringatan, munculkan Modal Peringatan Medis
+      setModalContent({
+        title: "Peringatan Medis",
+        message: warningMsg + "\nData akan tetap disimpan.",
+        type: "danger",
+        onClose: () => {
+          setModalVisible(false); // Tutup peringatan
+          // Jeda sedikit agar animasi modal tutup selesai sebelum navigasi/save dijalankan
+          setTimeout(() => {
+            processSaveData();
+          }, 400);
+        }
+      });
       setModalVisible(true);
+    } else {
+      // Jika semua normal, langsung simpan secara silent
+      processSaveData();
     }
   };
 
@@ -363,7 +400,6 @@ export default function Per4jam() {
               }))}
             />
 
-            {/* FITUR YANG DIKEMBALIKAN: INFO BOX MOLASE */}
             {molaseDesc && (
               <View
                 style={[
@@ -429,9 +465,12 @@ export default function Per4jam() {
                 <TextInput
                   style={styles.medInput}
                   value={form.sistolik}
-                  onChangeText={(t) => handleChange("sistolik", t)}
+                  onChangeText={(t) =>
+                    handleChange("sistolik", t.replace(/[^0-9]/g, ""))
+                  }
                   keyboardType="numeric"
                   placeholder="120"
+                  maxLength={3}
                 />
               </View>
               <View style={styles.halfInput}>
@@ -439,9 +478,12 @@ export default function Per4jam() {
                 <TextInput
                   style={styles.medInput}
                   value={form.diastolik}
-                  onChangeText={(t) => handleChange("diastolik", t)}
+                  onChangeText={(t) =>
+                    handleChange("diastolik", t.replace(/[^0-9]/g, ""))
+                  }
                   keyboardType="numeric"
                   placeholder="80"
+                  maxLength={3}
                 />
               </View>
             </View>
@@ -453,6 +495,7 @@ export default function Per4jam() {
                 onChangeText={(t) => handleChange("suhu", t)}
                 keyboardType="numeric"
                 placeholder="37.0"
+                maxLength={4}
               />
             </View>
           </View>
@@ -476,9 +519,12 @@ export default function Per4jam() {
               <TextInput
                 style={styles.medInput}
                 value={form.urine}
-                onChangeText={(t) => handleChange("urine", t)}
+                onChangeText={(t) =>
+                  handleChange("urine", t.replace(/[^0-9]/g, ""))
+                }
                 keyboardType="numeric"
                 placeholder="120"
+                maxLength={4}
               />
             </View>
             <View style={{ marginTop: 16 }}>
@@ -597,7 +643,6 @@ const styles = StyleSheet.create({
     marginBottom: 20
   },
   submitBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 15 },
-  // STYLING INFO BOX
   molaseInfo: {
     marginTop: -8,
     marginBottom: 16,

@@ -10,13 +10,13 @@ import {
   TextInput,
   StatusBar,
   Modal,
-  Pressable // Tambahan untuk Modal
+  Pressable
 } from "react-native";
 import {
   MaterialIcons,
   MaterialCommunityIcons,
   Ionicons,
-  Feather // Tambahan untuk Icon Modal
+  Feather
 } from "@expo/vector-icons";
 import { useParams, useNavigate } from "react-router-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,7 +24,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { scheduleRutinReminder } from "../../src/NotificationService";
 
-// --- UPDATE THEME (Supaya support warna Success/Danger/Warning Modal) ---
+// --- THEME ---
 const THEME = {
   bg: "#F4F6F8",
   card: "#FFFFFF",
@@ -34,7 +34,6 @@ const THEME = {
   textSec: "#78909C",
   border: "#CFD8DC",
   inputBg: "#FAFAFA",
-  // Tambahan warna untuk Modal
   success: "#2E7D32",
   danger: "#E53935",
   warning: "#FFB300"
@@ -47,7 +46,6 @@ const toLocalISOString = (date) => {
 };
 
 // ======================= COMPONENT: CUSTOM MODAL ALERT ==========================
-// (Diambil langsung dari desain Per4jam yang Anda berikan)
 function CustomAlertModal({
   isVisible,
   onClose,
@@ -133,8 +131,8 @@ function CustomAlertModal({
     </Modal>
   );
 }
-// ============================================================================
 
+// ======================= MAIN COMPONENT ==========================
 export default function Per30Menit() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -161,14 +159,13 @@ export default function Per30Menit() {
   const [modalContent, setModalContent] = useState({
     title: "",
     message: "",
-    type: "info", // info, success, danger, warning, confirm
+    type: "info",
     onConfirm: null,
     confirmText: "Ya",
     cancelText: "Tutup",
-    onClose: null // Custom close handler (opsional)
+    onClose: null
   });
 
-  // Fungsi Helper untuk mempermudah pemanggilan modal
   const showCustomAlert = (
     title,
     message,
@@ -182,7 +179,7 @@ export default function Per30Menit() {
       confirmText: "OK",
       cancelText: "Tutup",
       onConfirm: null,
-      onClose: customOnClose // Callback jika tombol tutup/ok ditekan
+      onClose: customOnClose
     });
     setModalVisible(true);
   };
@@ -207,7 +204,6 @@ export default function Per30Menit() {
     if (isNaN(num)) return;
 
     if (num > 5) {
-      // Gunakan Modal Warning
       showCustomAlert(
         "Nilai Tidak Valid",
         "Maksimal frekuensi kontraksi adalah 5 kali dalam 10 menit (Tachysystole).",
@@ -219,8 +215,9 @@ export default function Per30Menit() {
     }
   };
 
+  // --- FUNGSI SUBMIT DENGAN TAMBAHAN VALIDASI BATAS ---
   const submitVitals = async () => {
-    // Validasi Basic
+    // 1. Validasi Basic (Kosong)
     if (!djj || !nadi)
       return showCustomAlert(
         "Form Kosong",
@@ -228,7 +225,36 @@ export default function Per30Menit() {
         "danger"
       );
 
-    // Validasi Double Check
+    const djjNum = parseInt(djj);
+    const nadiNum = parseInt(nadi);
+
+    // 2. Validasi Batas DJJ (120 - 160)
+    if (djjNum < 110 || djjNum <= 160) {
+      return showCustomAlert(
+        "Peringatan DJJ",
+        `Nilai DJJ (${djjNum}) di luar batas normal (120-160 dpm). Harap periksa kembali kondisi janin.`,
+        "warning"
+      );
+    }
+
+    if (djjNum < 110 || djjNum > 160) {
+      return showCustomAlert(
+        "Peringatan DJJ",
+        `Nilai DJJ (${djjNum}) di luar batas normal (120-160 dpm). Harap periksa kembali kondisi janin.`,
+        "warning"
+      );
+    }
+
+    // 3. Validasi Batas Nadi Ibu (60 - 100)
+    if (nadiNum < 60 || nadiNum > 100) {
+      return showCustomAlert(
+        "Peringatan Nadi",
+        `Nadi Ibu (${nadiNum}) di luar batas normal (60-100 bpm). Harap periksa kondisi fisik ibu.`,
+        "warning"
+      );
+    }
+
+    // 4. Validasi Frekuensi Kontraksi
     if (hisFrekuensi && parseInt(hisFrekuensi) > 5) {
       return showCustomAlert(
         "Validasi Gagal",
@@ -251,8 +277,8 @@ export default function Per30Menit() {
           body: JSON.stringify({
             partograf_id: id,
             waktu_catat: waktuLokal,
-            djj: djj,
-            nadi_ibu: nadi,
+            djj: djjNum,
+            nadi_ibu: nadiNum,
             kontraksi_frekuensi: hisFrekuensi ? parseInt(hisFrekuensi) : null,
             kontraksi_durasi: hisDurasi ? parseInt(hisDurasi) : null
           })
@@ -262,7 +288,6 @@ export default function Per30Menit() {
 
       if (res.ok) {
         await scheduleRutinReminder(namaPasien, waktuCatat);
-        // SUKSES: Tampilkan modal success, lalu navigasi back saat ditutup
         showCustomAlert(
           "Berhasil",
           "Data Pantau Rutin tersimpan.",
@@ -290,7 +315,6 @@ export default function Per30Menit() {
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar backgroundColor={THEME.bg} barStyle="dark-content" />
 
-      {/* --- IMPLEMENTASI CUSTOM ALERT MODAL BARU --- */}
       <CustomAlertModal
         isVisible={modalVisible}
         onClose={() => {
@@ -307,7 +331,6 @@ export default function Per30Menit() {
         onConfirm={modalContent.onConfirm}
         cancelText={modalContent.cancelText}
       />
-      {/* ------------------------------------------- */}
 
       <View style={styles.appBar}>
         <TouchableOpacity onPress={() => navigate(-1)} style={styles.backBtn}>
@@ -402,25 +425,25 @@ export default function Per30Menit() {
           <Text style={[styles.label, { marginTop: 8 }]}>Tanda Vital</Text>
           <View style={styles.formRow}>
             <View style={styles.inputGroup}>
-              <Text style={styles.subLabel}>DJJ (Bpm)</Text>
+              <Text style={styles.subLabel}>DJJ (120-160)</Text>
               <TextInput
                 style={styles.input}
                 keyboardType="numeric"
                 placeholder="140"
                 value={djj}
-                onChangeText={setDjj}
+                onChangeText={(t) => setDjj(t.replace(/[^0-9]/g, ""))}
                 maxLength={3}
               />
             </View>
             <View style={{ width: 16 }} />
             <View style={styles.inputGroup}>
-              <Text style={styles.subLabel}>Nadi Ibu</Text>
+              <Text style={styles.subLabel}>Nadi Ibu (60-100)</Text>
               <TextInput
                 style={styles.input}
                 keyboardType="numeric"
                 placeholder="80"
                 value={nadi}
-                onChangeText={setNadi}
+                onChangeText={(t) => setNadi(t.replace(/[^0-9]/g, ""))}
                 maxLength={3}
               />
             </View>
@@ -536,7 +559,6 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 }
 });
 
-// --- STYLES KHUSUS MODAL BARU (Disalin dari source) ---
 const modalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
